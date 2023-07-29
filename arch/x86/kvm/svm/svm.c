@@ -677,6 +677,39 @@ free_save_area:
 
 }
 
+static void set_dr_intercepts(struct vcpu_svm *svm)
+{
+	struct vmcb *vmcb = svm->vmcb01.ptr;
+
+	vmcb_set_intercept(&vmcb->control, INTERCEPT_DR0_READ);
+	vmcb_set_intercept(&vmcb->control, INTERCEPT_DR1_READ);
+	vmcb_set_intercept(&vmcb->control, INTERCEPT_DR2_READ);
+	vmcb_set_intercept(&vmcb->control, INTERCEPT_DR3_READ);
+	vmcb_set_intercept(&vmcb->control, INTERCEPT_DR4_READ);
+	vmcb_set_intercept(&vmcb->control, INTERCEPT_DR5_READ);
+	vmcb_set_intercept(&vmcb->control, INTERCEPT_DR6_READ);
+	vmcb_set_intercept(&vmcb->control, INTERCEPT_DR0_WRITE);
+	vmcb_set_intercept(&vmcb->control, INTERCEPT_DR1_WRITE);
+	vmcb_set_intercept(&vmcb->control, INTERCEPT_DR2_WRITE);
+	vmcb_set_intercept(&vmcb->control, INTERCEPT_DR3_WRITE);
+	vmcb_set_intercept(&vmcb->control, INTERCEPT_DR4_WRITE);
+	vmcb_set_intercept(&vmcb->control, INTERCEPT_DR5_WRITE);
+	vmcb_set_intercept(&vmcb->control, INTERCEPT_DR6_WRITE);
+	vmcb_set_intercept(&vmcb->control, INTERCEPT_DR7_READ);
+	vmcb_set_intercept(&vmcb->control, INTERCEPT_DR7_WRITE);
+
+	recalc_intercepts(svm);
+}
+
+static void clr_dr_intercepts(struct vcpu_svm *svm)
+{
+	struct vmcb *vmcb = svm->vmcb01.ptr;
+
+	vmcb->control.intercepts[INTERCEPT_DR] = 0;
+
+	recalc_intercepts(svm);
+}
+
 static int direct_access_msr_slot(u32 msr)
 {
 	u32 i;
@@ -1201,10 +1234,9 @@ static void init_vmcb(struct kvm_vcpu *vcpu)
 	 * Guest access to VMware backdoor ports could legitimately
 	 * trigger #GP because of TSS I/O permission bitmap.
 	 * We intercept those #GP and allow access to them anyway
-	 * as VMware does.  Don't intercept #GP for SEV guests as KVM can't
-	 * decrypt guest memory to decode the faulting instruction.
+	 * as VMware does.
 	 */
-	if (enable_vmware_backdoor && !sev_guest(vcpu->kvm))
+	if (enable_vmware_backdoor)
 		set_exception_intercept(svm, GP_VECTOR);
 
 	svm_set_intercept(svm, INTERCEPT_INTR);
@@ -1942,7 +1974,7 @@ static void svm_sync_dirty_debug_regs(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_svm *svm = to_svm(vcpu);
 
-	if (vcpu->arch.guest_state_protected)
+	if (WARN_ON_ONCE(sev_es_guest(vcpu->kvm)))
 		return;
 
 	get_debugreg(vcpu->arch.db[0], 0);
@@ -2503,12 +2535,13 @@ static int iret_interception(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_svm *svm = to_svm(vcpu);
 
+	WARN_ON_ONCE(sev_es_guest(vcpu->kvm));
+
 	++vcpu->stat.nmi_window_exits;
 	svm->awaiting_iret_completion = true;
 
 	svm_clr_iret_intercept(svm);
-	if (!sev_es_guest(vcpu->kvm))
-		svm->nmi_iret_rip = kvm_rip_read(vcpu);
+	svm->nmi_iret_rip = kvm_rip_read(vcpu);
 
 	kvm_make_request(KVM_REQ_EVENT, vcpu);
 	return 1;
@@ -2672,6 +2705,13 @@ static int dr_interception(struct kvm_vcpu *vcpu)
 	int reg, dr;
 	unsigned long val;
 	int err = 0;
+
+	/*
+	 * SEV-ES intercepts DR7 only to disable guest debugging and the guest issues a VMGEXIT
+	 * for DR7 write only. KVM cannot change DR7 (always swapped as type 'A') so return early.
+	 */
+	if (sev_es_guest(vcpu->kvm))
+		return 1;
 
 	if (vcpu->guest_debug == 0) {
 		/*
@@ -3762,6 +3802,19 @@ static void svm_enable_nmi_window(struct kvm_vcpu *vcpu)
 	if (svm_get_nmi_mask(vcpu) && !svm->awaiting_iret_completion)
 		return; /* IRET will cause a vm exit */
 
+	/*
+	 * SEV-ES guests are responsible for signaling when a vCPU is ready to
+	 * receive a new NMI, as SEV-ES guests can't be single-stepped, i.e.
+	 * KVM can't intercept and single-step IRET to detect when NMIs are
+	 * unblocked (architecturally speaking).  See SVM_VMGEXIT_NMI_COMPLETE.
+	 *
+	 * Note, GIF is guaranteed to be '1' for SEV-ES guests as hardware
+	 * ignores SEV-ES guest writes to EFER.SVME *and* CLGI/STGI are not
+	 * supported NAEs in the GHCB protocol.
+	 */
+	if (sev_es_guest(vcpu->kvm))
+		return;
+
 	if (!gif_set(svm)) {
 		if (vgif)
 			svm_set_intercept(svm, INTERCEPT_STGI);
@@ -3911,12 +3964,11 @@ static void svm_complete_interrupts(struct kvm_vcpu *vcpu)
 	svm->soft_int_injected = false;
 
 	/*
-	 * If we've made progress since setting HF_IRET_MASK, we've
+	 * If we've made progress since setting awaiting_iret_completion, we've
 	 * executed an IRET and can allow NMI injection.
 	 */
 	if (svm->awaiting_iret_completion &&
-	    (sev_es_guest(vcpu->kvm) ||
-	     kvm_rip_read(vcpu) != svm->nmi_iret_rip)) {
+	    kvm_rip_read(vcpu) != svm->nmi_iret_rip) {
 		svm->awaiting_iret_completion = false;
 		svm->nmi_masked = false;
 		kvm_make_request(KVM_REQ_EVENT, vcpu);
