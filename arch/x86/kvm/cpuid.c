@@ -647,7 +647,8 @@ void kvm_set_cpu_caps(void)
 	);
 
 	kvm_cpu_cap_init_kvm_defined(CPUID_7_1_EDX,
-		F(AVX_VNNI_INT8) | F(AVX_NE_CONVERT) | F(PREFETCHITI)
+		F(AVX_VNNI_INT8) | F(AVX_NE_CONVERT) | F(PREFETCHITI) |
+		F(AMX_COMPLEX)
 	);
 
 	kvm_cpu_cap_mask(CPUID_D_1_EAX,
@@ -1150,6 +1151,9 @@ static inline int __do_cpuid_func(struct kvm_cpuid_array *array, u32 function)
 		entry->ebx &= ~GENMASK(27, 16);
 		cpuid_entry_override(entry, CPUID_8000_0001_EDX);
 		cpuid_entry_override(entry, CPUID_8000_0001_ECX);
+		break;
+	case 0x80000005:
+		/*  Pass host L1 cache and TLB info. */
 		break;
 	case 0x80000006:
 		/* Drop reserved bits, pass host L2 cache and TLB info. */
