@@ -4191,6 +4191,16 @@ static long kvm_vcpu_ioctl(struct file *filp,
 				synchronize_rcu();
 			put_pid(oldpid);
 		}
+
+		/*
+		 * Reset the exit reason if the previous userspace exit was due
+		 * to a memory fault.  Most -EFAULT exits are NOT annotated,
+		 * leaving the exit_reason set to KVM_EXIT_MEMORY_FAULT could
+		 * result in feeding userspace stale information.
+		 */
+		if (vcpu->run->exit_reason == KVM_EXIT_MEMORY_FAULT)
+			vcpu->run->exit_reason = KVM_EXIT_UNKNOWN;
+
 		r = kvm_arch_vcpu_ioctl_run(vcpu);
 		trace_kvm_userspace_exit(vcpu->run->exit_reason, r);
 		break;
