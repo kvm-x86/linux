@@ -167,6 +167,30 @@ static void test_create_guest_memfd_invalid(struct kvm_vm *vm)
 	}
 }
 
+static void test_create_guest_memfd_multiple(struct kvm_vm *vm)
+{
+	int fd1, fd2, ret;
+	struct stat st1, st2;
+
+	fd1 = __vm_create_guest_memfd(vm, 4096, 0);
+	TEST_ASSERT(fd1 != -1, "memfd creation should succeed");
+
+	ret = fstat(fd1, &st1);
+	TEST_ASSERT(ret != -1, "memfd fstat should succeed");
+	TEST_ASSERT(st1.st_size == 4096, "memfd st_size should match requested size");
+
+	fd2 = __vm_create_guest_memfd(vm, 8192, 0);
+	TEST_ASSERT(fd2 != -1, "memfd creation should succeed");
+
+	ret = fstat(fd2, &st2);
+	TEST_ASSERT(ret != -1, "memfd fstat should succeed");
+	TEST_ASSERT(st2.st_size == 8192, "second memfd st_size should match requested size");
+
+	ret = fstat(fd1, &st1);
+	TEST_ASSERT(ret != -1, "memfd fstat should succeed");
+	TEST_ASSERT(st1.st_size == 4096, "first memfd st_size should still match requested size");
+	TEST_ASSERT(st1.st_ino != st2.st_ino, "different memfd should have different inode numbers");
+}
 
 int main(int argc, char *argv[])
 {
@@ -183,6 +207,7 @@ int main(int argc, char *argv[])
 	vm = vm_create_barebones();
 
 	test_create_guest_memfd_invalid(vm);
+	test_create_guest_memfd_multiple(vm);
 
 	fd = vm_create_guest_memfd(vm, total_size, 0);
 
