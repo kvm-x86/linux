@@ -371,8 +371,10 @@ static void test_mem_conversions(enum vm_mem_backing_src_type src_type, uint32_t
 	 * Allocate enough memory so that each vCPU's chunk of memory can be
 	 * naturally aligned with respect to the size of the backing store.
 	 */
-	const size_t size = align_up(PER_CPU_DATA_SIZE, get_backing_src_pagesz(src_type));
-	const size_t memfd_size = size * nr_vcpus;
+	const size_t alignment = max_t(size_t, SZ_2M, get_backing_src_pagesz(src_type));
+	const size_t per_cpu_size = align_up(PER_CPU_DATA_SIZE, alignment);
+	const size_t memfd_size = per_cpu_size * nr_vcpus;
+	const size_t slot_size = memfd_size / nr_memslots;
 	struct kvm_vcpu *vcpus[KVM_MAX_VCPUS];
 	pthread_t threads[KVM_MAX_VCPUS];
 	uint64_t gmem_flags;
@@ -384,6 +386,9 @@ static void test_mem_conversions(enum vm_mem_backing_src_type src_type, uint32_t
 		.type = KVM_X86_SW_PROTECTED_VM,
 	};
 
+	TEST_ASSERT(slot_size * nr_memslots == memfd_size,
+		    "The memfd size (0x%lx) needs to be cleanly divisible by the number of memslots (%u)",
+		    memfd_size, nr_memslots);
 	vm = __vm_create_with_vcpus(shape, nr_vcpus, 0, guest_code, vcpus);
 
 	vm_enable_cap(vm, KVM_CAP_EXIT_HYPERCALL, (1 << KVM_HC_MAP_GPA_RANGE));
@@ -395,16 +400,20 @@ static void test_mem_conversions(enum vm_mem_backing_src_type src_type, uint32_t
 	memfd = vm_create_guest_memfd(vm, memfd_size, gmem_flags);
 
 	for (i = 0; i < nr_memslots; i++)
-		vm_mem_add(vm, src_type, BASE_DATA_GPA + size * i,
-			   BASE_DATA_SLOT + i, size / vm->page_size,
-			   KVM_MEM_PRIVATE, memfd, size * i);
+		vm_mem_add(vm, src_type, BASE_DATA_GPA + slot_size * i,
+			   BASE_DATA_SLOT + i, slot_size / vm->page_size,
+			   KVM_MEM_PRIVATE, memfd, slot_size * i);
 
 	for (i = 0; i < nr_vcpus; i++) {
-		uint64_t gpa =  BASE_DATA_GPA + i * size;
+		uint64_t gpa =  BASE_DATA_GPA + i * per_cpu_size;
 
 		vcpu_args_set(vcpus[i], 1, gpa);
 
-		virt_map(vm, gpa, gpa, size / vm->page_size);
+		/*
+		 * Map only what is needed so that an out-of-bounds access
+		 * results #PF => SHUTDOWN instead of data corruption.
+		 */
+		virt_map(vm, gpa, gpa, PER_CPU_DATA_SIZE / vm->page_size);
 
 		pthread_create(&threads[i], NULL, __test_mem_conversions, vcpus[i]);
 	}
@@ -432,29 +441,28 @@ static void test_mem_conversions(enum vm_mem_backing_src_type src_type, uint32_t
 static void usage(const char *cmd)
 {
 	puts("");
-	printf("usage: %s [-h] [-m] [-s mem_type] [-n nr_vcpus]\n", cmd);
+	printf("usage: %s [-h] [-m nr_memslots] [-s mem_type] [-n nr_vcpus]\n", cmd);
 	puts("");
 	backing_src_help("-s");
 	puts("");
 	puts(" -n: specify the number of vcpus (default: 1)");
 	puts("");
-	puts(" -m: use multiple memslots (default: 1)");
+	puts(" -m: specify the number of memslots (default: 1)");
 	puts("");
 }
 
 int main(int argc, char *argv[])
 {
 	enum vm_mem_backing_src_type src_type = DEFAULT_VM_MEM_SRC;
-	bool use_multiple_memslots = false;
+	uint32_t nr_memslots = 1;
 	uint32_t nr_vcpus = 1;
-	uint32_t nr_memslots;
 	int opt;
 
 	TEST_REQUIRE(kvm_has_cap(KVM_CAP_GUEST_MEMFD));
 	TEST_REQUIRE(kvm_has_cap(KVM_CAP_EXIT_HYPERCALL));
 	TEST_REQUIRE(kvm_check_cap(KVM_CAP_VM_TYPES) & BIT(KVM_X86_SW_PROTECTED_VM));
 
-	while ((opt = getopt(argc, argv, "hms:n:")) != -1) {
+	while ((opt = getopt(argc, argv, "hm:s:n:")) != -1) {
 		switch (opt) {
 		case 's':
 			src_type = parse_backing_src_type(optarg);
@@ -463,7 +471,7 @@ int main(int argc, char *argv[])
 			nr_vcpus = atoi_positive("nr_vcpus", optarg);
 			break;
 		case 'm':
-			use_multiple_memslots = true;
+			nr_memslots = atoi_positive("nr_memslots", optarg);
 			break;
 		case 'h':
 		default:
@@ -471,8 +479,6 @@ int main(int argc, char *argv[])
 			exit(0);
 		}
 	}
-
-	nr_memslots = use_multiple_memslots ? nr_vcpus : 1;
 
 	test_mem_conversions(src_type, nr_vcpus, nr_memslots);
 
