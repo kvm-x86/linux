@@ -28,25 +28,25 @@
 #define PER_CPU_DATA_SIZE	((uint64_t)(SZ_2M + PAGE_SIZE))
 
 /* Horrific macro so that the line info is captured accurately :-( */
-#define memcmp_g(gpa, pattern,  size)							\
-do {											\
-	uint8_t *mem = (uint8_t *)gpa;							\
-	size_t i;									\
-											\
-	for (i = 0; i < size; i++)							\
-		__GUEST_ASSERT(mem[i] == pattern,					\
-			       "Expected 0x%x at offset %lu (gpa 0x%llx), got 0x%x",	\
-			       pattern, i, gpa + i, mem[i]);				\
+#define memcmp_g(gpa, pattern,  size)								\
+do {												\
+	uint8_t *mem = (uint8_t *)gpa;								\
+	size_t i;										\
+												\
+	for (i = 0; i < size; i++)								\
+		__GUEST_ASSERT(mem[i] == pattern,						\
+			       "Guest expected 0x%x at offset %lu (gpa 0x%llx), got 0x%x",	\
+			       pattern, i, gpa + i, mem[i]);					\
 } while (0)
 
-static void memcmp_h(uint8_t *mem, uint8_t pattern, size_t size)
+static void memcmp_h(uint8_t *mem, uint64_t gpa, uint8_t pattern, size_t size)
 {
 	size_t i;
 
 	for (i = 0; i < size; i++)
 		TEST_ASSERT(mem[i] == pattern,
-			    "Expected 0x%x at offset %lu, got 0x%x",
-			    pattern, i, mem[i]);
+			    "Host expected 0x%x at gpa 0x%lx, got 0x%x",
+			    pattern, gpa + i, mem[i]);
 }
 
 /*
@@ -335,19 +335,25 @@ static void *__test_mem_conversions(void *__vcpu)
 		case UCALL_ABORT:
 			REPORT_GUEST_ASSERT(uc);
 		case UCALL_SYNC: {
-			uint8_t *hva = addr_gpa2hva(vm, uc.args[1]);
-			uint64_t size = uc.args[2];
+			uint64_t gpa  = uc.args[1];
+			size_t size = uc.args[2];
+			size_t i;
 
 			TEST_ASSERT(uc.args[0] == SYNC_SHARED ||
 				    uc.args[0] == SYNC_PRIVATE,
 				    "Unknown sync command '%ld'", uc.args[0]);
 
-			/* In all cases, the host should observe the shared data. */
-			memcmp_h(hva, uc.args[3], size);
+			for (i = 0; i < size; i += vm->page_size) {
+				size_t nr_bytes = min_t(size_t, vm->page_size, size - i);
+				uint8_t *hva = addr_gpa2hva(vm, gpa + i);
 
-			/* For shared, write the new pattern to guest memory. */
-			if (uc.args[0] == SYNC_SHARED)
-				memset(hva, uc.args[4], size);
+				/* In all cases, the host should observe the shared data. */
+				memcmp_h(hva, gpa + i, uc.args[3], nr_bytes);
+
+				/* For shared, write the new pattern to guest memory. */
+				if (uc.args[0] == SYNC_SHARED)
+					memset(hva, uc.args[4], nr_bytes);
+			}
 			break;
 		}
 		case UCALL_DONE:
