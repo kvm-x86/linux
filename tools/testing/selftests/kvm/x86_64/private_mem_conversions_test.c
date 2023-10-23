@@ -129,6 +129,7 @@ static void guest_test_explicit_conversion(uint64_t base_gpa, bool do_fallocate)
 
 	/* Memory should be shared by default. */
 	memset((void *)base_gpa, def_p, PER_CPU_DATA_SIZE);
+	memcmp_g(base_gpa, def_p, PER_CPU_DATA_SIZE);
 	guest_sync_shared(base_gpa, PER_CPU_DATA_SIZE, def_p, init_p);
 
 	memcmp_g(base_gpa, init_p, PER_CPU_DATA_SIZE);
