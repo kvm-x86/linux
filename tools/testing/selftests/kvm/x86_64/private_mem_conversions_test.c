@@ -122,13 +122,15 @@ struct {
 
 static void guest_test_explicit_conversion(uint64_t base_gpa, bool do_fallocate)
 {
+	const uint8_t def_p = 0xaa;
 	const uint8_t init_p = 0xcc;
 	uint64_t j;
 	int i;
 
 	/* Memory should be shared by default. */
-	memset((void *)base_gpa, ~init_p, PER_CPU_DATA_SIZE);
-	guest_sync_shared(base_gpa, PER_CPU_DATA_SIZE, (uint8_t)~init_p, init_p);
+	memset((void *)base_gpa, def_p, PER_CPU_DATA_SIZE);
+	guest_sync_shared(base_gpa, PER_CPU_DATA_SIZE, def_p, init_p);
+
 	memcmp_g(base_gpa, init_p, PER_CPU_DATA_SIZE);
 
 	for (i = 0; i < ARRAY_SIZE(test_ranges); i++) {
