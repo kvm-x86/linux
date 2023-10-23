@@ -285,11 +285,16 @@ static struct file *kvm_gmem_get_file(struct kvm_memory_slot *slot)
 	return file;
 }
 
-static const struct file_operations kvm_gmem_fops = {
+static struct file_operations kvm_gmem_fops = {
 	.open		= generic_file_open,
 	.release	= kvm_gmem_release,
 	.fallocate	= kvm_gmem_fallocate,
 };
+
+void kvm_gmem_init(struct module *module)
+{
+	kvm_gmem_fops.owner = module;
+}
 
 static int kvm_gmem_migrate_folio(struct address_space *mapping,
 				  struct folio *dst, struct folio *src,
