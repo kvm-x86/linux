@@ -2447,7 +2447,7 @@ bool kvm_range_has_memory_attributes(struct kvm *kvm, gfn_t start, gfn_t end,
 	rcu_read_lock();
 
 	if (!attrs) {
-		has_attrs = !xas_find(&xas, end);
+		has_attrs = !xas_find(&xas, end - 1);
 		goto out;
 	}
 
