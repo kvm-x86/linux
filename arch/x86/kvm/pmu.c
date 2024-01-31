@@ -441,7 +441,6 @@ static bool check_pmu_event_filter(struct kvm_pmc *pmc)
 static bool pmc_event_is_allowed(struct kvm_pmc *pmc)
 {
 	return pmc_is_globally_enabled(pmc) && pmc_speculative_in_use(pmc) &&
-	       static_call(kvm_x86_pmu_hw_event_available)(pmc) &&
 	       check_pmu_event_filter(pmc);
 }
 
@@ -525,10 +524,20 @@ void kvm_pmu_handle_event(struct kvm_vcpu *vcpu)
 		kvm_pmu_cleanup(vcpu);
 }
 
-/* check if idx is a valid index to access PMU */
-bool kvm_pmu_is_valid_rdpmc_ecx(struct kvm_vcpu *vcpu, unsigned int idx)
+int kvm_pmu_check_rdpmc_early(struct kvm_vcpu *vcpu, unsigned int idx)
 {
-	return static_call(kvm_x86_pmu_is_valid_rdpmc_ecx)(vcpu, idx);
+	/*
+	 * On Intel, VMX interception has priority over RDPMC exceptions that
+	 * aren't already handled by the emulator, i.e. there are no additional
+	 * check needed for Intel PMUs.
+	 *
+	 * On AMD, _all_ exceptions on RDPMC have priority over SVM intercepts,
+	 * i.e. an invalid PMC results in a #GP, not #VMEXIT.
+	 */
+	if (!kvm_pmu_ops.check_rdpmc_early)
+		return 0;
+
+	return static_call(kvm_x86_pmu_check_rdpmc_early)(vcpu, idx);
 }
 
 bool is_vmware_backdoor_pmc(u32 pmc_idx)
@@ -567,10 +576,9 @@ static int kvm_pmu_rdpmc_vmware(struct kvm_vcpu *vcpu, unsigned idx, u64 *data)
 
 int kvm_pmu_rdpmc(struct kvm_vcpu *vcpu, unsigned idx, u64 *data)
 {
-	bool fast_mode = idx & (1u << 31);
 	struct kvm_pmu *pmu = vcpu_to_pmu(vcpu);
 	struct kvm_pmc *pmc;
-	u64 mask = fast_mode ? ~0u : ~0ull;
+	u64 mask = ~0ull;
 
 	if (!pmu->version)
 		return 1;
