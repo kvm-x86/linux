@@ -1820,22 +1820,22 @@ static int writeback(struct x86_emulate_ctxt *ctxt, struct operand *op)
 	return X86EMUL_CONTINUE;
 }
 
-static int push(struct x86_emulate_ctxt *ctxt, void *data, int bytes)
+static int emulate_push(struct x86_emulate_ctxt *ctxt, const void *data, int len)
 {
 	struct segmented_address addr;
 
-	rsp_increment(ctxt, -bytes);
+	rsp_increment(ctxt, -len);
 	addr.ea = reg_read(ctxt, VCPU_REGS_RSP) & stack_mask(ctxt);
 	addr.seg = VCPU_SREG_SS;
 
-	return segmented_write(ctxt, addr, data, bytes);
+	return segmented_write(ctxt, addr, data, len);
 }
 
 static int em_push(struct x86_emulate_ctxt *ctxt)
 {
 	/* Disable writeback. */
 	ctxt->dst.type = OP_NONE;
-	return push(ctxt, &ctxt->src.val, ctxt->op_bytes);
+	return emulate_push(ctxt, &ctxt->src.val, ctxt->op_bytes);
 }
 
 static int emulate_pop(struct x86_emulate_ctxt *ctxt,
@@ -1863,7 +1863,8 @@ static int emulate_popf(struct x86_emulate_ctxt *ctxt,
 			void *dest, int len)
 {
 	int rc;
-	unsigned long val, change_mask;
+	unsigned long val = 0;
+	unsigned long change_mask;
 	int iopl = (ctxt->eflags & X86_EFLAGS_IOPL) >> X86_EFLAGS_IOPL_BIT;
 	int cpl = ctxt->ops->cpl(ctxt);
 
@@ -1920,7 +1921,7 @@ static int em_enter(struct x86_emulate_ctxt *ctxt)
 		return X86EMUL_UNHANDLEABLE;
 
 	rbp = reg_read(ctxt, VCPU_REGS_RBP);
-	rc = push(ctxt, &rbp, stack_size(ctxt));
+	rc = emulate_push(ctxt, &rbp, stack_size(ctxt));
 	if (rc != X86EMUL_CONTINUE)
 		return rc;
 	assign_masked(reg_rmw(ctxt, VCPU_REGS_RBP), reg_read(ctxt, VCPU_REGS_RSP),
@@ -1954,7 +1955,7 @@ static int em_push_sreg(struct x86_emulate_ctxt *ctxt)
 static int em_pop_sreg(struct x86_emulate_ctxt *ctxt)
 {
 	int seg = ctxt->src2.val;
-	unsigned long selector;
+	unsigned long selector = 0;
 	int rc;
 
 	rc = emulate_pop(ctxt, &selector, 2);
@@ -2000,7 +2001,7 @@ static int em_popa(struct x86_emulate_ctxt *ctxt)
 {
 	int rc = X86EMUL_CONTINUE;
 	int reg = VCPU_REGS_RDI;
-	u32 val;
+	u32 val = 0;
 
 	while (reg >= VCPU_REGS_RAX) {
 		if (reg == VCPU_REGS_RSP) {
@@ -2229,7 +2230,7 @@ static int em_cmpxchg8b(struct x86_emulate_ctxt *ctxt)
 static int em_ret(struct x86_emulate_ctxt *ctxt)
 {
 	int rc;
-	unsigned long eip;
+	unsigned long eip = 0;
 
 	rc = emulate_pop(ctxt, &eip, ctxt->op_bytes);
 	if (rc != X86EMUL_CONTINUE)
@@ -2241,7 +2242,8 @@ static int em_ret(struct x86_emulate_ctxt *ctxt)
 static int em_ret_far(struct x86_emulate_ctxt *ctxt)
 {
 	int rc;
-	unsigned long eip, cs;
+	unsigned long eip = 0;
+	unsigned long cs = 0;
 	int cpl = ctxt->ops->cpl(ctxt);
 	struct desc_struct new_desc;
 
@@ -3184,7 +3186,7 @@ fail:
 static int em_ret_near_imm(struct x86_emulate_ctxt *ctxt)
 {
 	int rc;
-	unsigned long eip;
+	unsigned long eip = 0;
 
 	rc = emulate_pop(ctxt, &eip, ctxt->op_bytes);
 	if (rc != X86EMUL_CONTINUE)
@@ -3962,7 +3964,7 @@ static int check_rdpmc(struct x86_emulate_ctxt *ctxt)
 	 * protected mode.
 	 */
 	if ((!(cr4 & X86_CR4_PCE) && ctxt->ops->cpl(ctxt)) ||
-	    ctxt->ops->check_pmc(ctxt, rcx))
+	    ctxt->ops->check_rdpmc_early(ctxt, rcx))
 		return emulate_gp(ctxt, 0);
 
 	return X86EMUL_CONTINUE;
@@ -4505,11 +4507,11 @@ static const struct instr_dual instr_dual_0f_38_f1 = {
 };
 
 static const struct gprefix three_byte_0f_38_f0 = {
-	ID(0, &instr_dual_0f_38_f0), N, N, N
+	ID(0, &instr_dual_0f_38_f0), ID(0, &instr_dual_0f_38_f0), N, N
 };
 
 static const struct gprefix three_byte_0f_38_f1 = {
-	ID(0, &instr_dual_0f_38_f1), N, N, N
+	ID(0, &instr_dual_0f_38_f1), ID(0, &instr_dual_0f_38_f1), N, N
 };
 
 /*
