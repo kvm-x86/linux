@@ -722,7 +722,7 @@ static gfn_t kvm_mmu_page_get_gfn(struct kvm_mmu_page *sp, int index)
 	if (sp->role.passthrough)
 		return sp->gfn;
 
-	if (!sp->role.direct)
+	if (sp->shadowed_translation)
 		return sp->shadowed_translation[index] >> PAGE_SHIFT;
 
 	return sp->gfn + (index << ((sp->role.level - 1) * SPTE_LEVEL_BITS));
@@ -736,7 +736,7 @@ static gfn_t kvm_mmu_page_get_gfn(struct kvm_mmu_page *sp, int index)
  */
 static u32 kvm_mmu_page_get_access(struct kvm_mmu_page *sp, int index)
 {
-	if (sp_has_gptes(sp))
+	if (sp->shadowed_translation)
 		return sp->shadowed_translation[index] & ACC_ALL;
 
 	/*
@@ -757,7 +757,7 @@ static u32 kvm_mmu_page_get_access(struct kvm_mmu_page *sp, int index)
 static void kvm_mmu_page_set_translation(struct kvm_mmu_page *sp, int index,
 					 gfn_t gfn, unsigned int access)
 {
-	if (sp_has_gptes(sp)) {
+	if (sp->shadowed_translation) {
 		sp->shadowed_translation[index] = (gfn << PAGE_SHIFT) | access;
 		return;
 	}
@@ -1700,8 +1700,7 @@ static void kvm_mmu_free_shadow_page(struct kvm_mmu_page *sp)
 	hlist_del(&sp->hash_link);
 	list_del(&sp->link);
 	free_page((unsigned long)sp->spt);
-	if (!sp->role.direct)
-		free_page((unsigned long)sp->shadowed_translation);
+	free_page((unsigned long)sp->shadowed_translation);
 	kmem_cache_free(mmu_page_header_cache, sp);
 }
 
@@ -2203,7 +2202,7 @@ static struct kvm_mmu_page *kvm_mmu_alloc_shadow_page(struct kvm *kvm,
 
 	sp = kvm_mmu_memory_cache_alloc(caches->page_header_cache);
 	sp->spt = kvm_mmu_memory_cache_alloc(caches->shadow_page_cache);
-	if (!role.direct)
+	if (!role.direct && role.level <= KVM_MAX_HUGEPAGE_LEVEL)
 		sp->shadowed_translation = kvm_mmu_memory_cache_alloc(caches->shadowed_info_cache);
 
 	set_page_private(virt_to_page(sp->spt), (unsigned long)sp);
@@ -4663,38 +4662,23 @@ out_unlock:
 }
 #endif
 
-bool __kvm_mmu_honors_guest_mtrrs(bool vm_has_noncoherent_dma)
+bool kvm_mmu_may_ignore_guest_pat(void)
 {
 	/*
-	 * If host MTRRs are ignored (shadow_memtype_mask is non-zero), and the
-	 * VM has non-coherent DMA (DMA doesn't snoop CPU caches), KVM's ABI is
-	 * to honor the memtype from the guest's MTRRs so that guest accesses
-	 * to memory that is DMA'd aren't cached against the guest's wishes.
-	 *
-	 * Note, KVM may still ultimately ignore guest MTRRs for certain PFNs,
-	 * e.g. KVM will force UC memtype for host MMIO.
+	 * When EPT is enabled (shadow_memtype_mask is non-zero), the CPU does
+	 * not support self-snoop (or is affected by an erratum), and the VM
+	 * has non-coherent DMA (DMA doesn't snoop CPU caches), KVM's ABI is to
+	 * honor the memtype from the guest's PAT so that guest accesses to
+	 * memory that is DMA'd aren't cached against the guest's wishes.  As a
+	 * result, KVM _may_ ignore guest PAT, whereas without non-coherent DMA,
+	 * KVM _always_ ignores or honors guest PAT, i.e. doesn't toggle SPTE
+	 * bits in response to non-coherent device (un)registration.
 	 */
-	return vm_has_noncoherent_dma && shadow_memtype_mask;
+	return !static_cpu_has(X86_FEATURE_SELFSNOOP) && shadow_memtype_mask;
 }
 
 int kvm_tdp_page_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 {
-	/*
-	 * If the guest's MTRRs may be used to compute the "real" memtype,
-	 * restrict the mapping level to ensure KVM uses a consistent memtype
-	 * across the entire mapping.
-	 */
-	if (kvm_mmu_honors_guest_mtrrs(vcpu->kvm)) {
-		for ( ; fault->max_level > PG_LEVEL_4K; --fault->max_level) {
-			int page_num = KVM_PAGES_PER_HPAGE(fault->max_level);
-			gfn_t base = gfn_round_for_level(fault->gfn,
-							 fault->max_level);
-
-			if (kvm_mtrr_check_gfn_range_consistency(vcpu, base, page_num))
-				break;
-		}
-	}
-
 #ifdef CONFIG_X86_64
 	if (tdp_mmu_enabled)
 		return kvm_tdp_mmu_page_fault(vcpu, fault);
@@ -5030,7 +5014,7 @@ static void reset_rsvds_bits_mask_ept(struct kvm_vcpu *vcpu,
 
 static inline u64 reserved_hpa_bits(void)
 {
-	return rsvd_bits(shadow_phys_bits, 63);
+	return rsvd_bits(kvm_host.maxphyaddr, 63);
 }
 
 /*
@@ -6960,7 +6944,6 @@ static unsigned long mmu_shrink_scan(struct shrinker *shrink,
 
 	list_for_each_entry(kvm, &vm_list, vm_list) {
 		int idx;
-		LIST_HEAD(invalid_list);
 
 		/*
 		 * Never scan more than sc->nr_to_scan VM instances.

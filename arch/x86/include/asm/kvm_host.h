@@ -160,7 +160,6 @@
 #define KVM_MIN_FREE_MMU_PAGES 5
 #define KVM_REFILL_PAGES 25
 #define KVM_MAX_CPUID_ENTRIES 256
-#define KVM_NR_FIXED_MTRR_REGION 88
 #define KVM_NR_VAR_MTRR 8
 
 #define ASYNC_PF_PER_VCPU 64
@@ -547,12 +546,12 @@ struct kvm_pmu {
 	unsigned nr_arch_fixed_counters;
 	unsigned available_event_types;
 	u64 fixed_ctr_ctrl;
-	u64 fixed_ctr_ctrl_mask;
+	u64 fixed_ctr_ctrl_rsvd;
 	u64 global_ctrl;
 	u64 global_status;
 	u64 counter_bitmask[2];
-	u64 global_ctrl_mask;
-	u64 global_status_mask;
+	u64 global_ctrl_rsvd;
+	u64 global_status_rsvd;
 	u64 reserved_bits;
 	u64 raw_event_mask;
 	struct kvm_pmc gp_counters[KVM_INTEL_PMC_MAX_GENERIC];
@@ -572,9 +571,9 @@ struct kvm_pmu {
 
 	u64 ds_area;
 	u64 pebs_enable;
-	u64 pebs_enable_mask;
+	u64 pebs_enable_rsvd;
 	u64 pebs_data_cfg;
-	u64 pebs_data_cfg_mask;
+	u64 pebs_data_cfg_rsvd;
 
 	/*
 	 * If a guest counter is cross-mapped to host counter with different
@@ -605,18 +604,12 @@ enum {
 	KVM_DEBUGREG_WONT_EXIT = 2,
 };
 
-struct kvm_mtrr_range {
-	u64 base;
-	u64 mask;
-	struct list_head node;
-};
-
 struct kvm_mtrr {
-	struct kvm_mtrr_range var_ranges[KVM_NR_VAR_MTRR];
-	mtrr_type fixed_ranges[KVM_NR_FIXED_MTRR_REGION];
+	u64 var[KVM_NR_VAR_MTRR * 2];
+	u64 fixed_64k;
+	u64 fixed_16k[2];
+	u64 fixed_4k[8];
 	u64 deftype;
-
-	struct list_head head;
 };
 
 /* Hyper-V SynIC timer */
@@ -1208,7 +1201,7 @@ enum kvm_apicv_inhibit {
 	 * APIC acceleration is disabled by a module parameter
 	 * and/or not supported in hardware.
 	 */
-	APICV_INHIBIT_REASON_DISABLE,
+	APICV_INHIBIT_REASON_DISABLED,
 
 	/*
 	 * APIC acceleration is inhibited because AutoEOI feature is
@@ -1278,7 +1271,26 @@ enum kvm_apicv_inhibit {
 	 * mapping between logical ID and vCPU.
 	 */
 	APICV_INHIBIT_REASON_LOGICAL_ID_ALIASED,
+
+	NR_APICV_INHIBIT_REASONS,
 };
+
+#define __APICV_INHIBIT_REASON(reason)			\
+	{ BIT(APICV_INHIBIT_REASON_##reason), #reason }
+
+#define APICV_INHIBIT_REASONS				\
+	__APICV_INHIBIT_REASON(DISABLED),		\
+	__APICV_INHIBIT_REASON(HYPERV),			\
+	__APICV_INHIBIT_REASON(ABSENT),			\
+	__APICV_INHIBIT_REASON(BLOCKIRQ),		\
+	__APICV_INHIBIT_REASON(PHYSICAL_ID_ALIASED),	\
+	__APICV_INHIBIT_REASON(APIC_ID_MODIFIED),	\
+	__APICV_INHIBIT_REASON(APIC_BASE_MODIFIED),	\
+	__APICV_INHIBIT_REASON(NESTED),			\
+	__APICV_INHIBIT_REASON(IRQWIN),			\
+	__APICV_INHIBIT_REASON(PIT_REINJ),		\
+	__APICV_INHIBIT_REASON(SEV),			\
+	__APICV_INHIBIT_REASON(LOGICAL_ID_ALIASED)
 
 struct kvm_arch {
 	unsigned long n_used_mmu_pages;
@@ -1365,6 +1377,7 @@ struct kvm_arch {
 
 	u32 default_tsc_khz;
 	bool user_set_tsc;
+	u64 apic_bus_cycle_ns;
 
 	seqcount_raw_spinlock_t pvclock_sc;
 	bool use_master_clock;
@@ -1857,7 +1870,6 @@ struct kvm_arch_async_pf {
 };
 
 extern u32 __read_mostly kvm_nr_uret_msrs;
-extern u64 __read_mostly host_efer;
 extern bool __read_mostly allow_smaller_maxphyaddr;
 extern bool __read_mostly enable_apicv;
 extern struct kvm_x86_ops kvm_x86_ops;
