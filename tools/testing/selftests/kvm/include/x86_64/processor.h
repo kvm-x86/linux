@@ -23,6 +23,7 @@
 
 extern bool host_cpu_is_intel;
 extern bool host_cpu_is_amd;
+extern uint64_t guest_tsc_khz;
 
 /* Forced emulation prefix, used to invoke the emulator unconditionally. */
 #define KVM_FEP "ud2; .byte 'k', 'v', 'm';"
@@ -813,6 +814,22 @@ static inline void write_sse_reg(int reg, const sse128_t *data)
 static inline void cpu_relax(void)
 {
 	asm volatile("rep; nop" ::: "memory");
+}
+
+static inline void udelay(unsigned long usec)
+{
+	uint64_t start, now, cycles;
+
+	GUEST_ASSERT(guest_tsc_khz);
+	cycles = guest_tsc_khz / 1000 * usec;
+
+	start = rdtsc();
+	for (;;) {
+		now = rdtsc();
+		if (now - start >= cycles)
+			break;
+		cpu_relax();
+	}
 }
 
 #define ud2()			\
