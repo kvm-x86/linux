@@ -4297,10 +4297,21 @@ static int vmx_check_nested_events(struct kvm_vcpu *vcpu)
 		if (nested_exit_intr_ack_set(vcpu)) {
 			int irq;
 
-			irq = kvm_cpu_get_interrupt(vcpu, -1);
+			irq = kvm_cpu_get_interrupt(vcpu, vmx->nested.posted_intr_nv);
 			if (WARN_ON_ONCE(irq < 0))
 				goto no_vmexit;
 
+			/*
+			 * If the IRQ is L2's PI notification vector, process
+			 * posted interrupts instead of injecting VM-Exit, as
+			 * the detection/morphing architecturally occurs when
+			 * the IRQ is delivered to the CPU.  Note, enabling PI
+			 * requires ACK-on-exit.
+			 */
+			if (irq == vmx->nested.posted_intr_nv) {
+				vmx->nested.pi_pending = true;
+				goto no_vmexit;
+			}
 			exit_intr_info = INTR_INFO_VALID_MASK | INTR_TYPE_EXT_INTR | irq;
 		} else {
 			exit_intr_info = 0;
