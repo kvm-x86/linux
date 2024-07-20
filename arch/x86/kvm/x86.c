@@ -10548,7 +10548,7 @@ static int kvm_check_and_inject_events(struct kvm_vcpu *vcpu,
 		if (r < 0)
 			goto out;
 		if (r) {
-			int irq = kvm_cpu_get_interrupt(vcpu);
+			int irq = kvm_cpu_get_interrupt(vcpu, -1);
 
 			if (!WARN_ON_ONCE(irq == -1)) {
 				kvm_queue_interrupt(vcpu, irq, false);

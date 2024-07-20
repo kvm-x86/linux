@@ -2922,7 +2922,7 @@ void kvm_inject_apic_timer_irqs(struct kvm_vcpu *vcpu)
 	}
 }
 
-int kvm_get_apic_interrupt(struct kvm_vcpu *vcpu)
+int kvm_get_apic_interrupt(struct kvm_vcpu *vcpu, int nested_pi_nv)
 {
 	int vector = kvm_apic_has_interrupt(vcpu);
 	struct kvm_lapic *apic = vcpu->arch.apic;
@@ -2937,8 +2937,16 @@ int kvm_get_apic_interrupt(struct kvm_vcpu *vcpu)
 	 * on exit" mode.  Then we cannot inject the interrupt via RVI,
 	 * because the process would deliver it through the IDT.
 	 */
-
 	apic_clear_irr(vector, apic);
+
+	/*
+	 * If the vector is L2's posted interrupt notification vector, return
+	 * without moving the vector to the ISR, as notification interrupts
+	 * trigger processing in L2, i.e. aren't delivered to L1.
+	 */
+	if (vector == nested_pi_nv)
+		return vector;
+
 	if (kvm_hv_synic_auto_eoi_set(vcpu, vector)) {
 		/*
 		 * For auto-EOI interrupts, there might be another pending

@@ -135,13 +135,13 @@ static int kvm_cpu_get_extint(struct kvm_vcpu *v)
 /*
  * Read pending interrupt vector and intack.
  */
-int kvm_cpu_get_interrupt(struct kvm_vcpu *v)
+int kvm_cpu_get_interrupt(struct kvm_vcpu *v, int nested_pi_nv)
 {
 	int vector = kvm_cpu_get_extint(v);
 	if (vector != -1)
-		return vector;			/* PIC */
+		return vector;				/* PIC */
 
-	return kvm_get_apic_interrupt(v);	/* APIC */
+	return kvm_get_apic_interrupt(v, nested_pi_nv);	/* APIC */
 }
 EXPORT_SYMBOL_GPL(kvm_cpu_get_interrupt);
 
