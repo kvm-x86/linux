@@ -208,7 +208,7 @@ struct nested_vmx {
 
 	struct pi_desc *pi_desc;
 	bool pi_pending;
-	u16 posted_intr_nv;
+	int posted_intr_nv;
 
 	struct hrtimer preemption_timer;
 	u64 preemption_timer_deadline;
