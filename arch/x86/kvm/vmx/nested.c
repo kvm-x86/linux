@@ -4296,7 +4296,8 @@ static int vmx_check_nested_events(struct kvm_vcpu *vcpu)
 			int irq;
 
 			irq = kvm_cpu_get_interrupt(vcpu);
-			WARN_ON_ONCE(irq < 0);
+			if (WARN_ON_ONCE(irq < 0))
+				goto no_vmexit;
 
 			exit_intr_info = INTR_INFO_VALID_MASK | INTR_TYPE_EXT_INTR | irq;
 		} else {
