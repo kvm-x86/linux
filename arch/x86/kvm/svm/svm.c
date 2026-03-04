@@ -78,6 +78,7 @@ static bool erratum_383_found __read_mostly;
  * are published and we know what the new status bits are
  */
 static uint64_t osvw_len = 4, osvw_status;
+static DEFINE_SPINLOCK(osvw_lock);
 
 static DEFINE_PER_CPU(u64, current_tsc_ratio);
 
@@ -436,6 +437,48 @@ static void svm_init_osvw(struct kvm_vcpu *vcpu)
 		vcpu->arch.osvw.status |= 1;
 }
 
+static void svm_init_os_visible_workarounds(void)
+{
+	u64 len, status;
+
+	/*
+	 * Get OS-Visible Workarounds (OSVW) bits.
+	 *
+	 * Note that it is possible to have a system with mixed processor
+	 * revisions and therefore different OSVW bits. If bits are not the same
+	 * on different processors then choose the worst case (i.e. if erratum
+	 * is present on one processor and not on another then assume that the
+	 * erratum is present everywhere).
+	 *
+	 * Note #2!  The OSVW MSRs are used to communciate that an erratum is
+	 * NOT present!  Software must assume erratum as present if its bit is
+	 * set in OSVW_STATUS *or* the bit number exceeds OSVW_ID_LENGTH.  If
+	 * either RDMSR fails, simply zero out the length to treat all errata
+	 * as being present.  Similarly, use the *minimum* length across all
+	 * CPUs, not the maximum length.
+	 *
+	 * If the length is zero, then is KVM already treating all errata as
+	 * being present and there's nothing left to do.
+	 */
+	if (!osvw_len)
+		return;
+
+	if (!this_cpu_has(X86_FEATURE_OSVW) ||
+	    native_read_msr_safe(MSR_AMD64_OSVW_ID_LENGTH, &len) ||
+	    native_read_msr_safe(MSR_AMD64_OSVW_STATUS, &status))
+		len = status = 0;
+
+	if (status == READ_ONCE(osvw_status) && len >= READ_ONCE(osvw_len))
+		return;
+
+	guard(spinlock)(&osvw_lock);
+
+	if (len < osvw_len)
+		osvw_len = len;
+	osvw_status |= status;
+	osvw_status &= (1ULL << osvw_len) - 1;
+}
+
 static bool __kvm_is_svm_supported(void)
 {
 	int cpu = smp_processor_id();
@@ -556,34 +599,7 @@ static int svm_enable_virtualization_cpu(void)
 		__svm_write_tsc_multiplier(SVM_TSC_RATIO_DEFAULT);
 	}
 
-
-	/*
-	 * Get OSVW bits.
-	 *
-	 * Note that it is possible to have a system with mixed processor
-	 * revisions and therefore different OSVW bits. If bits are not the same
-	 * on different processors then choose the worst case (i.e. if erratum
-	 * is present on one processor and not on another then assume that the
-	 * erratum is present everywhere).
-	 */
-	if (cpu_has(&boot_cpu_data, X86_FEATURE_OSVW)) {
-		u64 len, status = 0;
-		int err;
-
-		err = native_read_msr_safe(MSR_AMD64_OSVW_ID_LENGTH, &len);
-		if (!err)
-			err = native_read_msr_safe(MSR_AMD64_OSVW_STATUS, &status);
-
-		if (err)
-			osvw_status = osvw_len = 0;
-		else {
-			if (len < osvw_len)
-				osvw_len = len;
-			osvw_status |= status;
-			osvw_status &= (1ULL << osvw_len) - 1;
-		}
-	} else
-		osvw_status = osvw_len = 0;
+	svm_init_os_visible_workarounds();
 
 	svm_init_erratum_383();
 
@@ -3192,20 +3208,6 @@ static int interrupt_window_interception(struct kvm_vcpu *vcpu)
 	kvm_make_request(KVM_REQ_EVENT, vcpu);
 	svm_clear_vintr(to_svm(vcpu));
 
-	/*
-	 * If not running nested, for AVIC, the only reason to end up here is ExtINTs.
-	 * In this case AVIC was temporarily disabled for
-	 * requesting the IRQ window and we have to re-enable it.
-	 *
-	 * If running nested, still remove the VM wide AVIC inhibit to
-	 * support case in which the interrupt window was requested when the
-	 * vCPU was not running nested.
-
-	 * All vCPUs which run still run nested, will remain to have their
-	 * AVIC still inhibited due to per-cpu AVIC inhibition.
-	 */
-	kvm_clear_apicv_inhibit(vcpu->kvm, APICV_INHIBIT_REASON_IRQWIN);
-
 	++vcpu->stat.irq_window_exits;
 	return 1;
 }
@@ -3820,6 +3822,23 @@ static void svm_inject_irq(struct kvm_vcpu *vcpu, bool reinjected)
 		type = SVM_EVTINJ_TYPE_INTR;
 	}
 
+	/*
+	 * If AVIC was inhibited in order to detect an IRQ window, and there's
+	 * no other injectable interrupts pending or L2 is active (see below),
+	 * then drop the inhibit as the window has served its purpose.
+	 *
+	 * If L2 is active, this path is reachable if L1 is not intercepting
+	 * IRQs, i.e. if KVM is injecting L1 IRQs into L2.  AVIC is locally
+	 * inhibited while L2 is active; drop the VM-wide inhibit to optimize
+	 * the case in which the interrupt window was requested while L1 was
+	 * active (the vCPU was not running nested).
+	 */
+	if (svm->avic_irq_window &&
+	    (!kvm_cpu_has_injectable_intr(vcpu) || is_guest_mode(vcpu))) {
+		svm->avic_irq_window = false;
+		kvm_dec_apicv_irq_window_req(svm->vcpu.kvm);
+	}
+
 	trace_kvm_inj_virq(intr->nr, intr->soft, reinjected);
 	++vcpu->stat.irq_injections;
 
@@ -4050,17 +4069,28 @@ static void svm_enable_irq_window(struct kvm_vcpu *vcpu)
 	 */
 	if (vgif || gif_set(svm)) {
 		/*
-		 * IRQ window is not needed when AVIC is enabled,
-		 * unless we have pending ExtINT since it cannot be injected
-		 * via AVIC. In such case, KVM needs to temporarily disable AVIC,
-		 * and fallback to injecting IRQ via V_IRQ.
+		 * KVM only enables IRQ windows when AVIC is enabled if there's
+		 * pending ExtINT since it cannot be injected via AVIC (ExtINT
+		 * bypasses the local APIC).  V_IRQ is ignored by hardware when
+		 * AVIC is enabled, and so KVM needs to temporarily disable
+		 * AVIC in order to detect when it's ok to inject the ExtINT.
 		 *
-		 * If running nested, AVIC is already locally inhibited
-		 * on this vCPU, therefore there is no need to request
-		 * the VM wide AVIC inhibition.
+		 * If running nested, AVIC is already locally inhibited on this
+		 * vCPU (L2 vCPUs use a different MMU that never maps the AVIC
+		 * backing page), therefore there is no need to increment the
+		 * VM-wide AVIC inhibit.  KVM will re-evaluate events when the
+		 * vCPU exits to L1 and enable an IRQ window if the ExtINT is
+		 * still pending.
+		 *
+		 * Note, the IRQ window inhibit needs to be updated even if
+		 * AVIC is inhibited for a different reason, as KVM needs to
+		 * keep AVIC inhibited if the other reason is cleared and there
+		 * is still an injectable interrupt pending.
 		 */
-		if (!is_guest_mode(vcpu))
-			kvm_set_apicv_inhibit(vcpu->kvm, APICV_INHIBIT_REASON_IRQWIN);
+		if (enable_apicv && !svm->avic_irq_window && !is_guest_mode(vcpu)) {
+			svm->avic_irq_window = true;
+			kvm_inc_apicv_irq_window_req(vcpu->kvm);
+		}
 
 		svm_set_vintr(svm);
 	}
