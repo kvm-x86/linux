@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-#ifndef ARCH_X86_KVM_MSR_H
-#define ARCH_X86_KVM_MSR_H
+#ifndef ARCH_X86_KVM_MSRS_H
+#define ARCH_X86_KVM_MSRS_H
 
 #include <linux/kvm_host.h>
 #include <linux/user-return-notifier.h>

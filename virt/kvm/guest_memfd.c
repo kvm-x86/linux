@@ -185,6 +185,10 @@ static void __kvm_gmem_invalidate_start(struct gmem_file *f, pgoff_t start,
 		}
 
 		flush |= kvm_mmu_unmap_gfn_range(kvm, &gfn_range);
+
+#ifdef CONFIG_HAVE_KVM_ARCH_GMEM_INVALIDATE
+		kvm_arch_gmem_invalidate_range(kvm, &gfn_range);
+#endif
 	}
 
 	if (flush)
@@ -977,8 +981,6 @@ static int kvm_gmem_init_fs_context(struct fs_context *fc)
 	if (!init_pseudo(fc, GUEST_MEMFD_MAGIC))
 		return -ENOMEM;
 
-	fc->s_iflags |= SB_I_NOEXEC;
-	fc->s_iflags |= SB_I_NODEV;
 	ctx = fc->fs_private;
 	ctx->ops = &kvm_gmem_super_operations;
 
