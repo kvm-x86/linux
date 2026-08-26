@@ -1656,8 +1656,10 @@ static unsigned long get_cpu_tsc_khz(void)
 static bool __get_kvmclock_master_clock(struct kvm *kvm,
 					struct kvm_clock_data *data)
 {
+#ifdef CONFIG_X86_64
 	struct kvm_arch *ka = &kvm->arch;
 	struct pvclock_vcpu_time_info hv_clock;
+	struct timespec64 ts;
 	u64 tsc_hz;
 
 	if (!ka->use_master_clock)
@@ -1674,27 +1676,24 @@ static bool __get_kvmclock_master_clock(struct kvm *kvm,
 	if (!tsc_hz)
 		return false;
 
-	{
-#ifdef CONFIG_X86_64
-		struct timespec64 ts;
-
-		if (kvm_get_walltime_and_clockread(&ts, &data->host_tsc)) {
-			data->realtime = ts.tv_nsec + NSEC_PER_SEC * ts.tv_sec;
-			data->flags |= KVM_CLOCK_REALTIME | KVM_CLOCK_HOST_TSC;
-		} else
-#endif
+	if (kvm_get_walltime_and_clockread(&ts, &data->host_tsc)) {
+		data->realtime = ts.tv_nsec + NSEC_PER_SEC * ts.tv_sec;
+		data->flags |= KVM_CLOCK_REALTIME | KVM_CLOCK_HOST_TSC;
+	} else {
 		data->host_tsc = rdtsc();
-
-		data->flags |= KVM_CLOCK_TSC_STABLE;
-		hv_clock.tsc_timestamp = ka->master_cycle_now;
-		hv_clock.system_time = ka->master_kernel_ns + ka->kvmclock_offset;
-		kvm_get_time_scale(NSEC_PER_SEC,  tsc_hz,
-				   &hv_clock.tsc_shift,
-				   &hv_clock.tsc_to_system_mul);
-		data->clock = __pvclock_read_cycles(&hv_clock, data->host_tsc);
 	}
 
+	data->flags |= KVM_CLOCK_TSC_STABLE;
+	hv_clock.tsc_timestamp = ka->master_cycle_now;
+	hv_clock.system_time = ka->master_kernel_ns + ka->kvmclock_offset;
+	kvm_get_time_scale(NSEC_PER_SEC,  tsc_hz,
+				&hv_clock.tsc_shift,
+				&hv_clock.tsc_to_system_mul);
+	data->clock = __pvclock_read_cycles(&hv_clock, data->host_tsc);
 	return true;
+#else
+	return false;
+#endif
 }
 
 static void get_kvmclock(struct kvm *kvm, struct kvm_clock_data *data)
