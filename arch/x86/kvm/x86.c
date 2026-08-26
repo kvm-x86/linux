@@ -1799,7 +1799,6 @@ static void kvm_setup_guest_pvclock(struct pvclock_vcpu_time_info *ref_hv_clock,
 int kvm_guest_time_update(struct kvm_vcpu *v)
 {
 	struct pvclock_vcpu_time_info hv_clock = {};
-	unsigned long flags;
 	u64 tgt_tsc_hz;
 	unsigned seq;
 	struct kvm_vcpu_arch *vcpu = &v->arch;
@@ -1824,11 +1823,14 @@ int kvm_guest_time_update(struct kvm_vcpu *v)
 		}
 	} while (read_seqcount_retry(&ka->pvclock_sc, seq));
 
-	/* Keep irq disabled to prevent changes to the clock */
-	local_irq_save(flags);
+	/*
+	 * Ensure reading the TSC+frequency pair is done on the same CPU.  When
+	 * NOT using the master clock, the TSC frequency may vary between CPUs.
+	 */
+	preempt_disable();
 	tgt_tsc_hz = (u64)get_cpu_tsc_khz() * HZ_PER_KHZ;
 	if (unlikely(tgt_tsc_hz == 0)) {
-		local_irq_restore(flags);
+		preempt_enable();
 		kvm_make_request(KVM_REQ_CLOCK_UPDATE, v);
 		return 1;
 	}
@@ -1863,7 +1865,7 @@ int kvm_guest_time_update(struct kvm_vcpu *v)
 	 */
 	vcpu->last_guest_tsc = tsc_timestamp;
 
-	local_irq_restore(flags);
+	preempt_enable();
 
 	/* With all the info we got, fill in the values */
 
