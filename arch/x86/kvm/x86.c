@@ -1653,11 +1653,15 @@ static unsigned long get_cpu_tsc_khz(void)
 }
 
 /* Called within read_seqcount_begin/retry for kvm->pvclock_sc.  */
-static void __get_kvmclock(struct kvm *kvm, struct kvm_clock_data *data)
+static bool __get_kvmclock_master_clock(struct kvm *kvm,
+					struct kvm_clock_data *data)
 {
 	struct kvm_arch *ka = &kvm->arch;
 	struct pvclock_vcpu_time_info hv_clock;
 	u64 tsc_hz;
+
+	if (!ka->use_master_clock)
+		return false;
 
 	/*
 	 * Snapshot and validate the TSC frequency as kvmclock_cpu_down_prep()
@@ -1667,8 +1671,10 @@ static void __get_kvmclock(struct kvm *kvm, struct kvm_clock_data *data)
 	tsc_hz = (u64)get_cpu_tsc_khz() * HZ_PER_KHZ;
 	put_cpu();
 
-	data->flags = 0;
-	if (ka->use_master_clock && tsc_hz) {
+	if (!tsc_hz)
+		return false;
+
+	{
 #ifdef CONFIG_X86_64
 		struct timespec64 ts;
 
@@ -1686,9 +1692,9 @@ static void __get_kvmclock(struct kvm *kvm, struct kvm_clock_data *data)
 				   &hv_clock.tsc_shift,
 				   &hv_clock.tsc_to_system_mul);
 		data->clock = __pvclock_read_cycles(&hv_clock, data->host_tsc);
-	} else {
-		data->clock = get_kvmclock_base_ns() + ka->kvmclock_offset;
 	}
+
+	return true;
 }
 
 static void get_kvmclock(struct kvm *kvm, struct kvm_clock_data *data)
@@ -1697,8 +1703,11 @@ static void get_kvmclock(struct kvm *kvm, struct kvm_clock_data *data)
 	unsigned seq;
 
 	do {
+		data->flags = 0;
+
 		seq = read_seqcount_begin(&ka->pvclock_sc);
-		__get_kvmclock(kvm, data);
+		if (!__get_kvmclock_master_clock(kvm, data))
+			data->clock = get_kvmclock_base_ns() + ka->kvmclock_offset;
 	} while (read_seqcount_retry(&ka->pvclock_sc, seq));
 }
 
