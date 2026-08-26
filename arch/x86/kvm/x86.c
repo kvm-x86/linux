@@ -1249,6 +1249,7 @@ static void __kvm_synchronize_tsc(struct kvm_vcpu *vcpu, u64 offset, u64 tsc,
 	kvm->arch.last_tsc_write = tsc;
 	kvm->arch.last_tsc_khz = vcpu->arch.virtual_tsc_khz;
 	kvm->arch.last_tsc_offset = offset;
+	kvm->arch.last_tsc_scaling_ratio = vcpu->arch.l1_tsc_scaling_ratio;
 
 	vcpu->arch.last_guest_tsc = tsc;
 
@@ -1561,6 +1562,8 @@ static bool kvm_get_walltime_and_clockread(struct timespec64 *ts,
  *
  */
 
+static unsigned long get_cpu_tsc_khz(void);
+
 static void pvclock_update_vm_gtod_copy(struct kvm *kvm)
 {
 #ifdef CONFIG_X86_64
@@ -1584,8 +1587,29 @@ static void pvclock_update_vm_gtod_copy(struct kvm *kvm)
 				&& !ka->backwards_tsc_observed
 				&& !ka->boot_vcpu_runs_old_kvmclock;
 
-	if (ka->use_master_clock)
+	if (ka->use_master_clock) {
+		u64 tsc_hz;
+
 		atomic_set(&kvm_guest_has_master_clock, 1);
+
+		/*
+		 * Copy the scaling ratio and precompute the mul/shift for
+		 * converting guest TSC to nanoseconds. These are used by
+		 * get_kvmclock() to compute kvmclock from the host TSC
+		 * without needing a vCPU reference.
+		 */
+		ka->master_tsc_scaling_ratio = ka->last_tsc_scaling_ratio;
+		tsc_hz = (u64)get_cpu_tsc_khz() * HZ_PER_KHZ;
+		if (tsc_hz && kvm_caps.has_tsc_control)
+			tsc_hz = kvm_scale_tsc(tsc_hz,
+					       ka->master_tsc_scaling_ratio);
+		if (tsc_hz)
+			kvm_get_time_scale(NSEC_PER_SEC, tsc_hz,
+					   &ka->master_tsc_shift,
+					   &ka->master_tsc_mul);
+		else
+			ka->use_master_clock = false;
+	}
 
 	vclock_mode = pvclock_gtod_data.clock.vclock_mode;
 	trace_kvm_update_master_clock(ka->use_master_clock, vclock_mode,
@@ -1660,20 +1684,8 @@ static bool __get_kvmclock_master_clock(struct kvm *kvm,
 	struct kvm_arch *ka = &kvm->arch;
 	struct pvclock_vcpu_time_info hv_clock;
 	struct timespec64 ts;
-	u64 tsc_hz;
 
 	if (!ka->use_master_clock)
-		return false;
-
-	/*
-	 * Snapshot and validate the TSC frequency as kvmclock_cpu_down_prep()
-	 * zeros the per-CPU value when a CPU is going offline.
-	 */
-	get_cpu();
-	tsc_hz = (u64)get_cpu_tsc_khz() * HZ_PER_KHZ;
-	put_cpu();
-
-	if (!tsc_hz)
 		return false;
 
 	if (!kvm_get_walltime_and_clockread(&ts, &data->host_tsc))
@@ -1685,10 +1697,25 @@ static bool __get_kvmclock_master_clock(struct kvm *kvm,
 
 	hv_clock.tsc_timestamp = ka->master_cycle_now;
 	hv_clock.system_time = ka->master_kernel_ns + ka->kvmclock_offset;
-	kvm_get_time_scale(NSEC_PER_SEC,  tsc_hz,
-				&hv_clock.tsc_shift,
-				&hv_clock.tsc_to_system_mul);
-	data->clock = __pvclock_read_cycles(&hv_clock, data->host_tsc);
+
+	/*
+	 * Use the precomputed guest-TSC-based mul/shift so that the kvmclock
+	 * value matches what the guest computes from its own TSC.
+	 */
+	hv_clock.tsc_shift = ka->master_tsc_shift;
+	hv_clock.tsc_to_system_mul = ka->master_tsc_mul;
+
+	if (kvm_caps.has_tsc_control) {
+		u64 tsc_delta = data->host_tsc - ka->master_cycle_now;
+
+		tsc_delta = kvm_scale_tsc(tsc_delta, ka->master_tsc_scaling_ratio);
+		data->clock = hv_clock.system_time +
+			      pvclock_scale_delta(tsc_delta,
+						  hv_clock.tsc_to_system_mul,
+						  hv_clock.tsc_shift);
+	} else {
+		data->clock = __pvclock_read_cycles(&hv_clock, data->host_tsc);
+	}
 	return true;
 #else
 	return false;
