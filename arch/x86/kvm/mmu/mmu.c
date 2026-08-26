@@ -5209,10 +5209,6 @@ int kvm_tdp_mmu_map_private_pfn(struct kvm_vcpu *vcpu, gfn_t gfn, kvm_pfn_t pfn)
 	if (kvm_gfn_is_write_tracked(kvm, fault.slot, fault.gfn))
 		return -EPERM;
 
-	r = kvm_mmu_reload(vcpu);
-	if (r)
-		return r;
-
 	r = mmu_topup_memory_caches(vcpu, false);
 	if (r)
 		return r;
@@ -5224,9 +5220,21 @@ int kvm_tdp_mmu_map_private_pfn(struct kvm_vcpu *vcpu, gfn_t gfn, kvm_pfn_t pfn)
 		if (kvm_test_request(KVM_REQ_VM_DEAD, vcpu))
 			return -EIO;
 
+		r = kvm_mmu_reload(vcpu);
+		if (r)
+			return r;
+
 		cond_resched();
 
 		guard(read_lock)(&kvm->mmu_lock);
+
+		/*
+		 * Because slots_lock is held, it should be impossible for *any*
+		 * roots to be invalidated after the initial MMU reload.  WARN,
+		 * but continue on; the above MMU reload will do the right thing
+		 * if the current root is actually invalid.
+		 */
+		WARN_ON_ONCE(kvm_test_request(KVM_REQ_MMU_FREE_OBSOLETE_ROOTS, vcpu));
 
 		r = kvm_tdp_mmu_map(vcpu, &fault);
 	} while (r == RET_PF_RETRY);
