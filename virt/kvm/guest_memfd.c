@@ -300,17 +300,55 @@ static int kvm_gmem_release(struct inode *inode, struct file *file)
 	 * dereferencing the slot for existing bindings needs to be protected
 	 * against memslot updates, specifically so that unbind doesn't race
 	 * and free the memslot (kvm_gmem_get_file() will return NULL).
-	 *
-	 * Since .release is called only when the reference count is zero,
-	 * after which file_ref_get() and get_file_active() fail,
-	 * kvm_gmem_get_pfn() cannot be using the file concurrently.
-	 * file_ref_put() provides a full barrier, and get_file_active() the
-	 * matching acquire barrier.
 	 */
 	mutex_lock(&kvm->slots_lock);
 
 	filemap_invalidate_lock(inode->i_mapping);
 
+	/*
+	 * Note!  synchronize_srcu() is _not_ needed after nullifying memslot
+	 * bindings as slot->gmem.file cannot be set back to a non-null value
+	 * without the memslot first being deleted.  I.e. this relies on the
+	 * synchronize_srcu_expedited() in kvm_swap_active_memslots() to ensure
+	 * kvm_gmem_get_pfn() (which runs with kvm->srcu held for read) can't
+	 * grab a reference to slot->gmem.file even if the struct file object
+	 * is reallocated.
+	 *
+	 * file_ref_put() provides a full barrier, and __get_file_rcu() the
+	 * matching acquire barrier, to ensure that kvm_gmem_get_file() (via
+	 * __get_file_rcu()) sees refcount==0 or fails the "file reloaded"
+	 * check (file != NULL due to nullifying the file pointer here).
+	 *
+	 * Unlike most other users of get_file_rcu(), where callers don't care
+	 * if they race with a write, only that they have a reference to _a_
+	 * live file, kvm_gmem_get_pfn() needs to get the exact file that is
+	 * associated with the memslot.  Without the aforementioned SRCU
+	 * synchronization, the following could happen:
+	 *
+	 *  CPU0				CPU1
+	 *  kvm_gmem_get_pfn()
+	 *    f = X (from slot->gmem.file)
+	 *					kvm_gmem_release())
+	 *					  slot->gmem.file = NULL
+	 *
+	 *					kvm_set_memory_region()
+	 *					  slot deleted
+	 *
+	 *					kvm_set_memory_region()
+	 *					  slot created
+	 *					  slot->gmem.file = f (alloc the same object)
+	 *
+	 *  get_file_active()
+	 *    file = f
+	 *    file_reloaded = f
+	 *
+	 * <KVM does weird things with an old memslot+file>
+	 *
+	 * Obviously KVM would be broken in many places if the synchronization
+	 * were omitted, but it's important to note that get_file_active() does
+	 * NOT guarantee a reference to the correct file was obtained, only
+	 * that the file doesn't point at a reallocated object.
+	 */
 	xa_for_each(&f->bindings, index, slot)
 		WRITE_ONCE(slot->gmem.file, NULL);
 
