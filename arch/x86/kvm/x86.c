@@ -1798,22 +1798,21 @@ static void kvm_setup_guest_pvclock(struct pvclock_vcpu_time_info *ref_hv_clock,
 
 int kvm_guest_time_update(struct kvm_vcpu *v)
 {
+	struct kvm_arch *ka __maybe_unused = &v->kvm->arch;
 	struct pvclock_vcpu_time_info hv_clock = {};
 	u64 tgt_tsc_hz;
-	unsigned seq;
 	struct kvm_vcpu_arch *vcpu = &v->arch;
-	struct kvm_arch *ka = &v->kvm->arch;
 	s64 kernel_ns;
 	u64 tsc_timestamp, host_tsc;
-	bool use_master_clock;
-
-	kernel_ns = 0;
-	host_tsc = 0;
 
 	/*
 	 * If the host uses TSC clock, then passthrough TSC as stable
 	 * to the guest.
 	 */
+#ifdef CONFIG_X86_64
+	bool use_master_clock;
+	unsigned int seq;
+
 	do {
 		seq = read_seqcount_begin(&ka->pvclock_sc);
 		use_master_clock = ka->use_master_clock;
@@ -1822,7 +1821,9 @@ int kvm_guest_time_update(struct kvm_vcpu *v)
 			kernel_ns = ka->master_kernel_ns;
 		}
 	} while (read_seqcount_retry(&ka->pvclock_sc, seq));
-
+#else
+	const bool use_master_clock = false;
+#endif
 	/*
 	 * Ensure reading the TSC+frequency pair is done on the same CPU.  When
 	 * NOT using the master clock, the TSC frequency may vary between CPUs.
