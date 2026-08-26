@@ -5236,6 +5236,18 @@ int kvm_tdp_mmu_map_private_pfn(struct kvm_vcpu *vcpu, gfn_t gfn, kvm_pfn_t pfn)
 		 */
 		WARN_ON_ONCE(kvm_test_request(KVM_REQ_MMU_FREE_OBSOLETE_ROOTS, vcpu));
 
+		/*
+		 * Snapshot the invalidation sequence counter after acquiring
+		 * mmu_lock, as guest_memfd guarantees the validity of the pfn,
+		 * i.e. any concurrent invalidations are guaranteed to be
+		 * irrelevant.
+		 */
+		fault.mmu_seq = vcpu->kvm->mmu_invalidate_seq;
+		if (is_page_fault_stale(vcpu, &fault)) {
+			r = RET_PF_RETRY;
+			continue;
+		}
+
 		r = kvm_tdp_mmu_map(vcpu, &fault);
 	} while (r == RET_PF_RETRY);
 
