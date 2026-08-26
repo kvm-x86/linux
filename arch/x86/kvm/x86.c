@@ -1820,6 +1820,12 @@ int kvm_guest_time_update(struct kvm_vcpu *v)
 		}
 	}
 
+	/*
+	 * Refresh L1's last "observed" TSC to match the PV clock's timestamp,
+	 * e.g. so that the guest can't see a TSC that's behind the reference.
+	 */
+	vcpu->last_guest_tsc = tsc_timestamp;
+
 	local_irq_restore(flags);
 
 	/* With all the info we got, fill in the values */
@@ -1841,7 +1847,6 @@ int kvm_guest_time_update(struct kvm_vcpu *v)
 	hv_clock.tsc_to_system_mul = vcpu->pvclock_tsc_mul;
 	hv_clock.tsc_timestamp = tsc_timestamp;
 	hv_clock.system_time = kernel_ns + v->kvm->arch.kvmclock_offset;
-	vcpu->last_guest_tsc = tsc_timestamp;
 
 	/* If the host uses TSC clocksource, then it is stable */
 	hv_clock.flags = 0;
