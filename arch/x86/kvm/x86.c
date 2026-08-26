@@ -1657,13 +1657,18 @@ static void __get_kvmclock(struct kvm *kvm, struct kvm_clock_data *data)
 {
 	struct kvm_arch *ka = &kvm->arch;
 	struct pvclock_vcpu_time_info hv_clock;
+	u64 tsc_hz;
 
-	/* both __this_cpu_read() and rdtsc() should be on the same cpu */
+	/*
+	 * Snapshot and validate the TSC frequency as kvmclock_cpu_down_prep()
+	 * zeros the per-CPU value when a CPU is going offline.
+	 */
 	get_cpu();
+	tsc_hz = (u64)get_cpu_tsc_khz() * HZ_PER_KHZ;
+	put_cpu();
 
 	data->flags = 0;
-	if (ka->use_master_clock &&
-	    (cpu_feature_enabled(X86_FEATURE_CONSTANT_TSC) || __this_cpu_read(cpu_tsc_khz))) {
+	if (ka->use_master_clock && tsc_hz) {
 #ifdef CONFIG_X86_64
 		struct timespec64 ts;
 
@@ -1677,15 +1682,13 @@ static void __get_kvmclock(struct kvm *kvm, struct kvm_clock_data *data)
 		data->flags |= KVM_CLOCK_TSC_STABLE;
 		hv_clock.tsc_timestamp = ka->master_cycle_now;
 		hv_clock.system_time = ka->master_kernel_ns + ka->kvmclock_offset;
-		kvm_get_time_scale(NSEC_PER_SEC, get_cpu_tsc_khz() * 1000LL,
+		kvm_get_time_scale(NSEC_PER_SEC,  tsc_hz,
 				   &hv_clock.tsc_shift,
 				   &hv_clock.tsc_to_system_mul);
 		data->clock = __pvclock_read_cycles(&hv_clock, data->host_tsc);
 	} else {
 		data->clock = get_kvmclock_base_ns() + ka->kvmclock_offset;
 	}
-
-	put_cpu();
 }
 
 static void get_kvmclock(struct kvm *kvm, struct kvm_clock_data *data)
