@@ -5209,10 +5209,6 @@ int kvm_tdp_mmu_map_private_pfn(struct kvm_vcpu *vcpu, gfn_t gfn, kvm_pfn_t pfn)
 	if (kvm_gfn_is_write_tracked(kvm, fault.slot, fault.gfn))
 		return -EPERM;
 
-	r = mmu_topup_memory_caches(vcpu, false);
-	if (r)
-		return r;
-
 	do {
 		if (signal_pending(current))
 			return -EINTR;
@@ -5221,6 +5217,10 @@ int kvm_tdp_mmu_map_private_pfn(struct kvm_vcpu *vcpu, gfn_t gfn, kvm_pfn_t pfn)
 			return -EIO;
 
 		r = kvm_mmu_reload(vcpu);
+		if (r)
+			return r;
+
+		r = mmu_topup_memory_caches(vcpu, false);
 		if (r)
 			return r;
 
