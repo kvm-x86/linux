@@ -2760,6 +2760,13 @@ DEFINE_CLASS(tdx_vm_state_guard, tdx_vm_state_guard_t,
 	     if (!IS_ERR(_T)) tdx_release_vm_state_locks(_T),
 	     tdx_acquire_vm_state_locks(kvm), struct kvm *kvm);
 
+static __always_inline void tdx_set_mirror_root_level(struct kvm *kvm, int level)
+{
+	BUILD_BUG_ON(level != 4 && level != 5);
+
+	kvm->arch.mirror_root_level = level;
+}
+
 static int tdx_td_init(struct kvm *kvm, struct kvm_tdx_cmd *cmd)
 {
 	struct kvm_tdx_init_vm __user *user_data = u64_to_user_ptr(cmd->data);
@@ -2822,10 +2829,13 @@ static int tdx_td_init(struct kvm *kvm, struct kvm_tdx_cmd *cmd)
 	kvm_tdx->attributes = td_params->attributes;
 	kvm_tdx->xfam = td_params->xfam;
 
-	if (td_params->config_flags & TDX_CONFIG_FLAGS_MAX_GPAW)
+	if (td_params->config_flags & TDX_CONFIG_FLAGS_MAX_GPAW) {
 		kvm->arch.gfn_direct_bits = TDX_SHARED_BIT_PWL_5;
-	else
+		tdx_set_mirror_root_level(kvm, 5);
+	} else {
 		kvm->arch.gfn_direct_bits = TDX_SHARED_BIT_PWL_4;
+		tdx_set_mirror_root_level(kvm, 4);
+	}
 
 	kvm_tdx->state = TD_STATE_INITIALIZED;
 out:
