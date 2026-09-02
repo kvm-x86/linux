@@ -56,9 +56,6 @@
 bool enable_tdx __ro_after_init;
 module_param_named(tdx, enable_tdx, bool, 0444);
 
-#define TDX_SHARED_BIT_PWL_5 gpa_to_gfn(BIT_ULL(51))
-#define TDX_SHARED_BIT_PWL_4 gpa_to_gfn(BIT_ULL(47))
-
 static const struct tdx_sys_info *tdx_sysinfo;
 
 void tdh_vp_rd_failed(struct vcpu_tdx *tdx, char *uclass, u32 field, u64 err)
@@ -1609,10 +1606,7 @@ static int handle_tdvmcall(struct kvm_vcpu *vcpu)
 
 void tdx_load_mmu_pgd(struct kvm_vcpu *vcpu, hpa_t root_hpa, int pgd_level)
 {
-	u64 shared_bit = (pgd_level == 5) ? TDX_SHARED_BIT_PWL_5 :
-			  TDX_SHARED_BIT_PWL_4;
-
-	if (KVM_BUG_ON(shared_bit != kvm_gfn_direct_bits(vcpu->kvm), vcpu->kvm))
+	if (KVM_BUG_ON(pgd_level != vcpu->kvm->arch.mirror_root_level, vcpu->kvm))
 		return;
 
 	td_vmcs_write64(to_tdx(vcpu), SHARED_EPT_POINTER, root_hpa);
@@ -2765,6 +2759,7 @@ static __always_inline void tdx_set_mirror_root_level(struct kvm *kvm, int level
 	BUILD_BUG_ON(level != 4 && level != 5);
 
 	kvm->arch.mirror_root_level = level;
+	kvm->arch.gfn_direct_bits = gpa_to_gfn(BIT_ULL(level == 4 ? 47 : 51));
 }
 
 static int tdx_td_init(struct kvm *kvm, struct kvm_tdx_cmd *cmd)
@@ -2829,13 +2824,10 @@ static int tdx_td_init(struct kvm *kvm, struct kvm_tdx_cmd *cmd)
 	kvm_tdx->attributes = td_params->attributes;
 	kvm_tdx->xfam = td_params->xfam;
 
-	if (td_params->config_flags & TDX_CONFIG_FLAGS_MAX_GPAW) {
-		kvm->arch.gfn_direct_bits = TDX_SHARED_BIT_PWL_5;
+	if (td_params->config_flags & TDX_CONFIG_FLAGS_MAX_GPAW)
 		tdx_set_mirror_root_level(kvm, 5);
-	} else {
-		kvm->arch.gfn_direct_bits = TDX_SHARED_BIT_PWL_4;
+	else
 		tdx_set_mirror_root_level(kvm, 4);
-	}
 
 	kvm_tdx->state = TD_STATE_INITIALIZED;
 out:
