@@ -244,15 +244,12 @@ void do_migrations(struct test_data_page *data, int run_secs, int delay_usecs,
 	fprintf(stderr, "Calling migrate_pages every %d microseconds\n",
 		delay_usecs);
 
-	/* Get set of first 64 numa nodes available */
-	kvm_get_mempolicy(NULL, &nodemask, MAXNODE_FOR_MASK(nodemask),
-			  0, MPOL_F_MEMS_ALLOWED);
+	nodes = kvm_get_numa_memory_nodes(&nodemask);
 
 	fprintf(stderr, "Numa nodes found amongst first %lu possible nodes "
 		"(each 1-bit indicates node is present): %#lx\n",
 		BITS_PER_TYPE(nodemask), nodemask);
 
-	nodes = __builtin_popcountl(nodemask);
 	TEST_ASSERT(nodes > 1,
 		    "Did not find at least 2 numa nodes. Can't do migration");
 

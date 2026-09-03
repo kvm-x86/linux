@@ -41,6 +41,19 @@ KVM_SYSCALL_DEFINE(mbind, 6, void *, addr, unsigned long, size, int, mode,
  */
 #define MAXNODE_FOR_MASK(mask) (BITS_PER_TYPE(mask) + 1)
 
+static inline int kvm_get_numa_memory_nodes(unsigned long *nodemask)
+{
+	int r;
+
+	*nodemask = 0;
+
+	r = get_mempolicy(NULL, nodemask, MAXNODE_FOR_MASK(*nodemask), 0,
+			  MPOL_F_MEMS_ALLOWED);
+	TEST_ASSERT(!r || errno == ENOSYS || errno == EPERM,
+		    "Unexpected get_mempolicy() failure");
+	return __builtin_popcountl(*nodemask);
+}
+
 /*
  * Return the node ID of the next NUMA node in the mask, starting at @from+1.
  * Guarantees a node is found, and that the found node is not @from.  Pass -1
