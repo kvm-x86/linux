@@ -6,7 +6,7 @@
 
 #include <dirent.h>
 
-#include <linux/bitops.h>
+#include <linux/bitmap.h>
 #include <linux/mempolicy.h>
 
 #include "kvm_syscalls.h"
@@ -40,6 +40,25 @@ KVM_SYSCALL_DEFINE(mbind, 6, void *, addr, unsigned long, size, int, mode,
  * node ID plus two".
  */
 #define MAXNODE_FOR_MASK(mask) (BITS_PER_TYPE(mask) + 1)
+
+/*
+ * Return the node ID of the next NUMA node in the mask, starting at @from+1.
+ * Guarantees a node is found, and that the found node is not @from.  Pass -1
+ * to find the first node in the mask.
+ */
+static inline int kvm_get_next_numa_node(unsigned long nodemask, int from)
+{
+	const unsigned long nr_bits = BITS_PER_TYPE(nodemask);
+	int to;
+
+	to = find_next_bit(&nodemask, nr_bits, from + 1);
+	if (to == nr_bits)
+		to = find_next_bit(&nodemask, nr_bits, 0);
+
+	TEST_ASSERT(to != nr_bits && to != from,
+		    "Unabled to find second NUMA node (from = %d, to = %d)", from, to);
+	return to;
+}
 
 static inline int get_max_numa_node(void)
 {

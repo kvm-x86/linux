@@ -233,13 +233,10 @@ void do_migrations(struct test_data_page *data, int run_secs, int delay_usecs,
 {
 	long pages_not_moved;
 	unsigned long nodemask = 0;
-	unsigned long nodemasks[BITS_PER_TYPE(nodemask)];
 	int nodes = 0;
 	time_t start_time, last_update, now;
 	time_t interval_secs = 1;
-	int i;
 	int from, to;
-	unsigned long bit;
 	u64 hlt_count;
 	u64 wake_count;
 	u64 ipis_sent;
@@ -255,24 +252,15 @@ void do_migrations(struct test_data_page *data, int run_secs, int delay_usecs,
 		"(each 1-bit indicates node is present): %#lx\n",
 		BITS_PER_TYPE(nodemask), nodemask);
 
-	/* Init array of masks containing a single-bit in each, one for each
-	 * available node. migrate_pages called below requires specifying nodes
-	 * as bit masks.
-	 */
-	for (i = 0, bit = 1; i < BITS_PER_TYPE(nodemask); i++, bit <<= 1) {
-		if (nodemask & bit) {
-			nodemasks[nodes] = nodemask & bit;
-			nodes++;
-		}
-	}
-
+	nodes = __builtin_popcountl(nodemask);
 	TEST_ASSERT(nodes > 1,
 		    "Did not find at least 2 numa nodes. Can't do migration");
 
 	fprintf(stderr, "Migrating amongst %d nodes found\n", nodes);
 
-	from = 0;
-	to = 1;
+	from = kvm_get_next_numa_node(nodemask, -1);
+	to = kvm_get_next_numa_node(nodemask, from);
+
 	start_time = time(NULL);
 	last_update = start_time;
 
@@ -281,6 +269,9 @@ void do_migrations(struct test_data_page *data, int run_secs, int delay_usecs,
 	wake_count = data->wake_count;
 
 	while ((int)(time(NULL) - start_time) < run_secs) {
+		unsigned long from_mask = BIT(from);
+		unsigned long to_mask = BIT(to);
+
 		data->migrations_attempted++;
 
 		/*
@@ -291,9 +282,8 @@ void do_migrations(struct test_data_page *data, int run_secs, int delay_usecs,
 		 * KVM_CREATE_VCPU ioctl. If that assumption ever changes this
 		 * test may break or give a false positive signal.
 		 */
-		pages_not_moved = migrate_pages(0, MAXNODE_FOR_MASK(nodemasks[from]),
-						&nodemasks[from],
-						&nodemasks[to]);
+		pages_not_moved = migrate_pages(0, MAXNODE_FOR_MASK(from_mask),
+						&from_mask, &to_mask);
 		if (pages_not_moved < 0)
 			fprintf(stderr,
 				"migrate_pages failed, errno=%d\n", errno);
@@ -305,9 +295,7 @@ void do_migrations(struct test_data_page *data, int run_secs, int delay_usecs,
 			data->migrations_completed++;
 
 		from = to;
-		to++;
-		if (to == nodes)
-			to = 0;
+		to = kvm_get_next_numa_node(nodemask, from);
 
 		now = time(NULL);
 		if (((now - start_time) % interval_secs == 0) &&
