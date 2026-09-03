@@ -6,6 +6,7 @@
 
 #include <dirent.h>
 
+#include <linux/bitops.h>
 #include <linux/mempolicy.h>
 
 #include "kvm_syscalls.h"
@@ -29,6 +30,16 @@ KVM_SYSCALL_DEFINE(move_pages, 6, int, pid, unsigned long, count, void *, pages,
 KVM_SYSCALL_DEFINE(mbind, 6, void *, addr, unsigned long, size, int, mode,
 		   const unsigned long *, nodemask, unsigned long, maxnode,
 		   unsigned int, flags);
+
+/*
+ * Calculate the @maxnode param for the above syscalls given the mask that will
+ * be passed to the kernel, to account for a longstanding off-by-one bug in the
+ * kernel that isn't properly documented in the manpages.  The manpages say
+ * that @maxnode is "the maximum node ID plus one", but the kernel's actual
+ * behavior is "the number of bits in the mask plus one", i.e. "the maximum
+ * node ID plus two".
+ */
+#define MAXNODE_FOR_MASK(mask) (BITS_PER_TYPE(mask) + 1)
 
 static inline int get_max_numa_node(void)
 {
