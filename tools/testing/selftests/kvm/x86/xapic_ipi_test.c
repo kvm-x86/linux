@@ -291,7 +291,7 @@ void do_migrations(struct test_data_page *data, int run_secs, int delay_usecs,
 		 * KVM_CREATE_VCPU ioctl. If that assumption ever changes this
 		 * test may break or give a false positive signal.
 		 */
-		pages_not_moved = migrate_pages(0, sizeof(nodemasks[from]),
+		pages_not_moved = migrate_pages(0, MAXNODE_FOR_MASK(nodemasks[from]),
 						&nodemasks[from],
 						&nodemasks[to]);
 		if (pages_not_moved < 0)
