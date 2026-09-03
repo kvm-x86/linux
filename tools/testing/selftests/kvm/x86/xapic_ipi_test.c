@@ -469,8 +469,9 @@ int main(int argc, char *argv[])
 	if (kvm_get_numa_memory_nodes(&nodemask) > 1)
 		test_xapic_ipi(run_secs, delay_usecs, true);
 	else
-		TEST_ASSERT(!force_migrate,
-			    "Did not find at least 2 numa nodes. Can't do migration");
+		__TEST_REQUIRE(!force_migrate,
+			       "Need at least 2 NUMA nodes to do migration (nodemask = 0x%lx)",
+			       nodemask);
 
 	return 0;
 }
