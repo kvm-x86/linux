@@ -245,13 +245,12 @@ void do_migrations(struct test_data_page *data, int run_secs, int delay_usecs,
 		delay_usecs);
 
 	nodes = kvm_get_numa_memory_nodes(&nodemask);
+	TEST_ASSERT(nodes > 1,
+		    "NUMA nodes disappeared?  nodemask = 0x%lx", nodemask);
 
 	fprintf(stderr, "Numa nodes found amongst first %lu possible nodes "
 		"(each 1-bit indicates node is present): %#lx\n",
 		BITS_PER_TYPE(nodemask), nodemask);
-
-	TEST_ASSERT(nodes > 1,
-		    "Did not find at least 2 numa nodes. Can't do migration");
 
 	fprintf(stderr, "Migrating amongst %d nodes found\n", nodes);
 
@@ -351,25 +350,16 @@ void get_cmdline_args(int argc, char *argv[], int *run_secs,
 	}
 }
 
-int main(int argc, char *argv[])
+static void test_xapic_ipi(int run_secs, int delay_usecs, bool migrate)
 {
 	int wait_secs;
 	const int max_halter_wait = 10;
-	int run_secs = 0;
-	int delay_usecs = 0;
 	struct test_data_page *data;
 	gva_t test_data_page_gva;
-	bool migrate = false;
 	pthread_t threads[2];
 	struct thread_params params[2];
 	struct kvm_vm *vm;
 	u64 *pipis_rcvd;
-
-	get_cmdline_args(argc, argv, &run_secs, &migrate, &delay_usecs);
-	if (run_secs <= 0)
-		run_secs = DEFAULT_RUN_SECS;
-	if (delay_usecs <= 0)
-		delay_usecs = DEFAULT_DELAY_USECS;
 
 	vm = vm_create_with_one_vcpu(&params[0].vcpu, halter_guest_code);
 
@@ -457,6 +447,30 @@ int main(int argc, char *argv[])
 		data->migrations_attempted, data->migrations_completed);
 
 	kvm_vm_free(vm);
+
+}
+
+int main(int argc, char *argv[])
+{
+	bool force_migrate = false;
+	unsigned long nodemask;
+	int run_secs = 0;
+	int delay_usecs = 0;
+
+	get_cmdline_args(argc, argv, &run_secs, &force_migrate, &delay_usecs);
+	if (run_secs <= 0)
+		run_secs = DEFAULT_RUN_SECS;
+	if (delay_usecs <= 0)
+		delay_usecs = DEFAULT_DELAY_USECS;
+
+	if (!force_migrate)
+		test_xapic_ipi(run_secs, delay_usecs, false);
+
+	if (kvm_get_numa_memory_nodes(&nodemask) > 1)
+		test_xapic_ipi(run_secs, delay_usecs, true);
+	else
+		TEST_ASSERT(!force_migrate,
+			    "Did not find at least 2 numa nodes. Can't do migration");
 
 	return 0;
 }
