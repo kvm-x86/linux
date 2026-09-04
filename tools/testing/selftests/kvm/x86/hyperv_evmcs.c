@@ -97,7 +97,7 @@ void guest_code(struct vmx_pages *vmx_pages, struct hyperv_test_pages *hv_pages,
 	GUEST_SYNC(3);
 	GUEST_ASSERT(load_evmcs(hv_pages));
 	/* VMPTRST returns -1 until VMLAUNCH with eVMCS ptr set */
-	GUEST_ASSERT(vmptrstz() == -1);
+	GUEST_ASSERT(vmptrst() == -1);
 
 	GUEST_SYNC(4);
 
@@ -123,7 +123,7 @@ void guest_code(struct vmx_pages *vmx_pages, struct hyperv_test_pages *hv_pages,
 	GUEST_ASSERT(!vmlaunch());
 	GUEST_ASSERT_EQ(vmreadz(VM_EXIT_REASON), EXIT_REASON_EXCEPTION_NMI);
 	GUEST_ASSERT_EQ((vmreadz(VM_EXIT_INTR_INFO) & 0xff), NMI_VECTOR);
-	GUEST_ASSERT(vmptrstz() == hv_pages->enlightened_vmcs_gpa);
+	GUEST_ASSERT(vmptrst() == hv_pages->enlightened_vmcs_gpa);
 
 	/*
 	 * NMI forces L2->L1 exit, resuming L2 and hope that EVMCS is

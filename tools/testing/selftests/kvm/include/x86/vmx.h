@@ -366,27 +366,16 @@ static inline int __vmptrld(u64 vmcs_pa)
 	return vector ? vector : failed ? -EINVAL : 0;
 }
 
-static inline int vmptrst(u64 *value)
+static inline u64 vmptrst(void)
 {
-	u64 tmp;
+	u64 value = 0;
 	u8 ret;
 
 	__asm__ __volatile__("vmptrst %[value]; setna %[ret]"
-		: [value]"=m"(tmp), [ret]"=rm"(ret)
+		: [value]"=m"(value), [ret]"=rm"(ret)
 		: : "cc", "memory");
 
-	*value = tmp;
-	return ret;
-}
-
-/*
- * A wrapper around vmptrst that ignores errors and returns zero if the
- * vmptrst instruction fails.
- */
-static inline u64 vmptrstz(void)
-{
-	u64 value = 0;
-	vmptrst(&value);
+	__GUEST_ASSERT(!ret, "vmptrst failed");
 	return value;
 }
 
