@@ -265,14 +265,6 @@ static inline bool load_evmcs(struct hyperv_test_pages *hv)
 	return true;
 }
 
-static inline int evmcs_vmptrst(u64 *value)
-{
-	*value = current_vp_assist->current_nested_vmcs &
-		~HV_X64_MSR_VP_ASSIST_PAGE_ENABLE;
-
-	return 0;
-}
-
 static inline int evmcs_vmread(u64 encoding, u64 *value)
 {
 	switch (encoding) {
