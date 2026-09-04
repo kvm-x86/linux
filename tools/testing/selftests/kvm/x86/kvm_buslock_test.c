@@ -47,7 +47,7 @@ static void l1_vmx_code(struct vmx_pages *vmx)
 
 	prepare_vmcs(vmx, NULL);
 
-	GUEST_ASSERT(!vmwrite(GUEST_RIP, (u64)l2_guest_code));
+	vmwrite(GUEST_RIP, (u64)l2_guest_code);
 	vmlaunch();
 }
 

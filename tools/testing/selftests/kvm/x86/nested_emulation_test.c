@@ -70,9 +70,9 @@ static void guest_code(void *test_data)
 		load_vmcs(test_data);
 
 		prepare_vmcs(test_data, NULL);
-		GUEST_ASSERT(!vmwrite(GUEST_IDTR_LIMIT, 0));
-		GUEST_ASSERT(!vmwrite(GUEST_RIP, (u64)l2_guest_code));
-		GUEST_ASSERT(!vmwrite(EXCEPTION_BITMAP, 0));
+		vmwrite(GUEST_IDTR_LIMIT, 0);
+		vmwrite(GUEST_RIP, (u64)l2_guest_code);
+		vmwrite(EXCEPTION_BITMAP, 0);
 
 		vmwrite(CPU_BASED_VM_EXEC_CONTROL, vmreadz(CPU_BASED_VM_EXEC_CONTROL) |
 						   CPU_BASED_PAUSE_EXITING |

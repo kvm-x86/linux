@@ -97,12 +97,10 @@ void l1_guest_code(struct vmx_pages *vmx_pages)
 	/*
 	 * Turn on PIN control and resume the guest
 	 */
-	GUEST_ASSERT(!vmwrite(PIN_BASED_VM_EXEC_CONTROL,
-			      vmreadz(PIN_BASED_VM_EXEC_CONTROL) |
-			      PIN_BASED_VMX_PREEMPTION_TIMER));
+	vmwrite(PIN_BASED_VM_EXEC_CONTROL,
+		vmreadz(PIN_BASED_VM_EXEC_CONTROL) | PIN_BASED_VMX_PREEMPTION_TIMER);
 
-	GUEST_ASSERT(!vmwrite(VMX_PREEMPTION_TIMER_VALUE,
-			      PREEMPTION_TIMER_VALUE));
+	vmwrite(VMX_PREEMPTION_TIMER_VALUE, PREEMPTION_TIMER_VALUE);
 
 	vmx_pt_rate = rdmsr(MSR_IA32_VMX_MISC) & 0x1F;
 

@@ -429,9 +429,10 @@ static __always_inline int __vmwrite(u64 encoding, u64 value)
 	return ret;
 }
 
-static inline int vmwrite(u64 encoding, u64 value)
+static inline void vmwrite(u64 encoding, u64 value)
 {
-	return __vmwrite(encoding, value);
+	__GUEST_ASSERT(!__vmwrite(encoding, value),
+		       "vmwrite[0x%lx] = 0x%lx hit VM-Fail", encoding, value);
 }
 
 static inline u32 vmcs_revision(void)

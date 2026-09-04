@@ -62,10 +62,10 @@ void vmx_l2_guest_code(void)
 	GUEST_ASSERT(vmreadz(GUEST_RIP) == 0xc0ffee);
 	GUEST_SYNC(10);
 	GUEST_ASSERT(vmreadz(GUEST_RIP) == 0xc0ffee);
-	GUEST_ASSERT(!vmwrite(GUEST_RIP, 0xc0fffee));
+	vmwrite(GUEST_RIP, 0xc0fffee);
 	GUEST_SYNC(11);
 	GUEST_ASSERT(vmreadz(GUEST_RIP) == 0xc0fffee);
-	GUEST_ASSERT(!vmwrite(GUEST_RIP, 0xc0ffffee));
+	vmwrite(GUEST_RIP, 0xc0ffffee);
 	GUEST_SYNC(12);
 
 	/* Done, exit to L1 and never come back.  */

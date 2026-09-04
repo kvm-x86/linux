@@ -82,7 +82,7 @@ static void l1_vmx_code(struct vmx_pages *vmx)
 	vmwrite(CPU_BASED_VM_EXEC_CONTROL,
 		vmreadz(CPU_BASED_VM_EXEC_CONTROL) | CPU_BASED_USE_MSR_BITMAPS);
 
-	GUEST_ASSERT(!vmwrite(GUEST_RIP, (u64)l2_guest_code));
+	vmwrite(GUEST_RIP, (u64)l2_guest_code);
 	vmlaunch();
 }
 

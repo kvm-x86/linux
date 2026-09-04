@@ -102,7 +102,7 @@ static void l1_vmx_code(struct vmx_pages *vmx)
 	load_vmcs(vmx);
 	prepare_vmcs(vmx, guest_access_memory);
 
-	GUEST_ASSERT(!vmwrite(EXCEPTION_BITMAP, BIT(UD_VECTOR)));
+	vmwrite(EXCEPTION_BITMAP, BIT(UD_VECTOR));
 
 	vmlaunch();
 	while (1) {

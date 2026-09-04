@@ -110,7 +110,7 @@ static void l1_svm_code(struct svm_test_data *svm)
 
 static void vmx_run_l2(void *l2_code, int vector, u32 error_code)
 {
-	GUEST_ASSERT(!vmwrite(GUEST_RIP, (u64)l2_code));
+	vmwrite(GUEST_RIP, (u64)l2_code);
 
 	if (vector == SS_VECTOR)
 		vmlaunch();
@@ -133,21 +133,21 @@ static void l1_vmx_code(struct vmx_pages *vmx)
 	load_vmcs(vmx);
 
 	prepare_vmcs(vmx, NULL);
-	GUEST_ASSERT_EQ(vmwrite(GUEST_IDTR_LIMIT, 0), 0);
+	vmwrite(GUEST_IDTR_LIMIT, 0);
 
 	/*
 	 * VMX disallows injecting an exception with error_code[31:16] != 0,
 	 * and hardware will never generate a VM-Exit with bits 31:16 set.
 	 * KVM should likewise truncate the "bad" userspace value.
 	 */
-	GUEST_ASSERT_EQ(vmwrite(EXCEPTION_BITMAP, INTERCEPT_SS_GP_DF), 0);
+	vmwrite(EXCEPTION_BITMAP, INTERCEPT_SS_GP_DF);
 	vmx_run_l2(l2_ss_pending_test, SS_VECTOR, (u16)SS_ERROR_CODE);
 	vmx_run_l2(l2_ss_injected_gp_test, GP_VECTOR, GP_ERROR_CODE_INTEL);
 
-	GUEST_ASSERT_EQ(vmwrite(EXCEPTION_BITMAP, INTERCEPT_SS_DF), 0);
+	vmwrite(EXCEPTION_BITMAP, INTERCEPT_SS_DF);
 	vmx_run_l2(l2_ss_injected_df_test, DF_VECTOR, DF_ERROR_CODE);
 
-	GUEST_ASSERT_EQ(vmwrite(EXCEPTION_BITMAP, INTERCEPT_SS), 0);
+	vmwrite(EXCEPTION_BITMAP, INTERCEPT_SS);
 	vmx_run_l2(l2_ss_injected_tf_test, FAKE_TRIPLE_FAULT_VECTOR, 0);
 	GUEST_ASSERT_EQ(vmreadz(VM_EXIT_REASON), EXIT_REASON_TRIPLE_FAULT);
 
