@@ -99,7 +99,7 @@ static void l1_svm_code(struct svm_test_data *svm)
 static void l1_vmx_code(struct vmx_pages *vmx)
 {
 	prepare_for_vmx_operation(vmx);
-	GUEST_ASSERT(load_vmcs(vmx));
+	load_vmcs(vmx);
 	prepare_vmcs(vmx, guest_access_memory);
 
 	GUEST_ASSERT(!vmwrite(EXCEPTION_BITMAP, BIT(UD_VECTOR)));

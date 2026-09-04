@@ -87,7 +87,7 @@ static void l1_guest_code(void *data)
 		u32 control;
 
 		prepare_for_vmx_operation(vmx_pages);
-		GUEST_ASSERT(load_vmcs(vmx_pages));
+		load_vmcs(vmx_pages);
 
 		prepare_vmcs(vmx_pages, l2_guest_code);
 		control = vmreadz(CPU_BASED_VM_EXEC_CONTROL);

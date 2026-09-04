@@ -56,7 +56,7 @@ static void l1_vmx_code(struct vmx_pages *vmx, u64 expected_fault_gpa,
 
 	GUEST_ASSERT(vmx->vmcs_gpa);
 	prepare_for_vmx_operation(vmx);
-	GUEST_ASSERT(load_vmcs(vmx));
+	load_vmcs(vmx);
 
 	prepare_vmcs(vmx, l2_entry);
 

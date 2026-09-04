@@ -94,7 +94,7 @@ void l1_vmx_code(struct vmx_pages *vmx)
 
 	GUEST_ASSERT(vmx->vmcs_gpa);
 	prepare_for_vmx_operation(vmx);
-	GUEST_ASSERT(load_vmcs(vmx));
+	load_vmcs(vmx);
 
 	if (vmx->eptp_gpa)
 		l2_rip = l2_guest_code_tdp_enabled;

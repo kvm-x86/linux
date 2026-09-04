@@ -34,7 +34,7 @@ static void l1_vmx_code(struct vmx_pages *vmx, u64 vcpu_id)
 {
 	GUEST_ASSERT(vmx->vmcs_gpa);
 	prepare_for_vmx_operation(vmx);
-	GUEST_ASSERT(load_vmcs(vmx));
+	load_vmcs(vmx);
 	GUEST_ASSERT(ept_1g_pages_supported());
 
 	*(u64 *)vmx->stack = vcpu_id;

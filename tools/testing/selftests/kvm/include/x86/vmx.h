@@ -550,7 +550,7 @@ union vmx_ctrl_msr {
 struct vmx_pages *vcpu_alloc_vmx(struct kvm_vm *vm, gva_t *p_vmx_gva);
 void prepare_for_vmx_operation(struct vmx_pages *vmx);
 void prepare_vmcs(struct vmx_pages *vmx, void *guest_rip);
-bool load_vmcs(struct vmx_pages *vmx);
+void load_vmcs(struct vmx_pages *vmx);
 
 bool ept_1g_pages_supported(void);
 

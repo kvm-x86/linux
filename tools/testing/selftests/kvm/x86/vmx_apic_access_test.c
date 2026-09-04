@@ -39,7 +39,7 @@ static void l1_guest_code(struct vmx_pages *vmx_pages, unsigned long high_gpa)
 	u32 control;
 
 	prepare_for_vmx_operation(vmx_pages);
-	GUEST_ASSERT(load_vmcs(vmx_pages));
+	load_vmcs(vmx_pages);
 
 	/* Prepare the VMCS for L2 execution. */
 	prepare_vmcs(vmx_pages, l2_guest_code);

@@ -41,7 +41,7 @@ static void l1_vmx_code(struct vmx_pages *vmx_pages)
 	uintptr_t save_cr3;
 
 	prepare_for_vmx_operation(vmx_pages);
-	GUEST_ASSERT(load_vmcs(vmx_pages));
+	load_vmcs(vmx_pages);
 
 	prepare_vmcs(vmx_pages, l2_guest_code);
 

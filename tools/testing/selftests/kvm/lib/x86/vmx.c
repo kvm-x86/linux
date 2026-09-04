@@ -166,7 +166,7 @@ void prepare_for_vmx_operation(struct vmx_pages *vmx)
 	vmxon(vmx->vmxon_gpa);
 }
 
-bool load_vmcs(struct vmx_pages *vmx)
+void load_vmcs(struct vmx_pages *vmx)
 {
 	/* Load a VMCS. */
 	*(u32 *)(vmx->vmcs) = vmcs_revision();
@@ -177,8 +177,6 @@ bool load_vmcs(struct vmx_pages *vmx)
 	/* Setup shadow VMCS, do not load it yet. */
 	*(u32 *)(vmx->shadow_vmcs) = vmcs_revision() | 0x80000000ul;
 	vmclear(vmx->shadow_vmcs_gpa);
-
-	return true;
 }
 
 static bool ept_vpid_cap_supported(u64 mask)

@@ -79,7 +79,7 @@ static void guest_code(void *arg)
 			generic_svm_setup(svm, l2_guest_code);
 		} else {
 			prepare_for_vmx_operation(vmx_pages);
-			GUEST_ASSERT(load_vmcs(vmx_pages));
+			load_vmcs(vmx_pages);
 			prepare_vmcs(vmx_pages, l2_guest_code);
 		}
 

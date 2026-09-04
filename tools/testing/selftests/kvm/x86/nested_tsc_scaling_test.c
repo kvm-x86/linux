@@ -106,7 +106,7 @@ static void l1_vmx_code(struct vmx_pages *vmx_pages)
 	check_tsc_freq(UCHECK_L1);
 
 	prepare_for_vmx_operation(vmx_pages);
-	GUEST_ASSERT(load_vmcs(vmx_pages));
+	load_vmcs(vmx_pages);
 
 	/* prepare the VMCS for L2 execution */
 	prepare_vmcs(vmx_pages, l2_guest_code);

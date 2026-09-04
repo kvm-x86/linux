@@ -67,7 +67,7 @@ static void guest_code(void *test_data)
 		vmcb->control.intercept_exceptions = 0;
 	} else {
 		prepare_for_vmx_operation(test_data);
-		GUEST_ASSERT(load_vmcs(test_data));
+		load_vmcs(test_data);
 
 		prepare_vmcs(test_data, NULL);
 		GUEST_ASSERT(!vmwrite(GUEST_IDTR_LIMIT, 0));
