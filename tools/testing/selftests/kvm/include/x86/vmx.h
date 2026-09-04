@@ -342,15 +342,28 @@ static inline int vmptrld(u64 vmcs_pa)
 {
 	u8 ret;
 
-	if (enable_evmcs)
-		return -1;
-
 	__asm__ __volatile__ ("vmptrld %[pa]; setna %[ret]"
 		: [ret]"=rm"(ret)
 		: [pa]"m"(vmcs_pa)
 		: "cc", "memory");
 
 	return ret;
+}
+
+static inline int __vmptrld(u64 vmcs_pa)
+{
+	u64 error_code;
+	u8 vector;
+	u8 failed;
+
+	asm volatile(KVM_ASM_SAFE("vmptrld %[pa]")
+		     "\n\tsetna %[failed]"
+		     : KVM_ASM_SAFE_OUTPUTS(vector, error_code),
+		       [failed]"=qm"(failed)
+		     : [pa]"m"(vmcs_pa)
+		     : "cc", "memory", KVM_ASM_SAFE_CLOBBERS);
+
+	return vector ? vector : failed ? -EINVAL : 0;
 }
 
 static inline int vmptrst(u64 *value)

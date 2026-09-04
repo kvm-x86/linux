@@ -23,7 +23,11 @@ static int ud_count;
 static void guest_ud_handler(struct ex_regs *regs)
 {
 	ud_count++;
-	regs->rip += 3; /* VMLAUNCH */
+	/*
+	 * VMLAUNCH insn can't be easily covered by KVM_ASM_SAFE framework but
+	 * luckily the instruction is always three bytes.
+	 */
+	regs->rip += 3;
 }
 
 static void guest_nmi_handler(struct ex_regs *regs)
@@ -178,7 +182,15 @@ void guest_code(struct vmx_pages *vmx_pages, struct hyperv_test_pages *hv_pages,
 	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
 	GUEST_SYNC(11);
 
-	/* Try enlightened vmptrld with an incorrect GPA */
+	/* VMPTRLD instruction causes #UD after enlightened VMLAUNCH */
+	GUEST_ASSERT(__vmptrld(hv_pages->enlightened_vmcs_gpa) == UD_VECTOR);
+
+	/*
+	 * Try enlightened vmptrld with an incorrect GPA. GUEST_SYNC(12) signals
+	 * the host to enable guest_ud_handler() which cannot be enabled beforehand
+	 * to not override the default fixup handler from KVM_ASM_SAFE().
+	 */
+	GUEST_SYNC(12);
 	evmcs_vmptrld(0xdeadbeef, hv_pages->enlightened_vmcs);
 	GUEST_ASSERT(vmlaunch());
 	GUEST_ASSERT(ud_count == 1);
@@ -252,7 +264,6 @@ int main(int argc, char *argv[])
 	vcpu_args_set(vcpu, 3, vmx_pages_gva, hv_pages_gva, addr_gva2gpa(vm, hcall_page));
 	vcpu_set_msr(vcpu, HV_X64_MSR_VP_INDEX, vcpu->id);
 
-	vm_install_exception_handler(vm, UD_VECTOR, guest_ud_handler);
 	vm_install_exception_handler(vm, NMI_VECTOR, guest_nmi_handler);
 
 	pr_info("Running L1 which uses EVMCS to run L2\n");
@@ -282,7 +293,7 @@ int main(int argc, char *argv[])
 
 		/* Force immediate L2->L1 exit before resuming */
 		if (stage == 8) {
-			pr_info("Injecting NMI into L1 before L2 had a chance to run after restore\n");
+			pr_debug("Injecting NMI into L1 before L2 had a chance to run after restore\n");
 			inject_nmi(vcpu);
 		}
 
@@ -292,8 +303,13 @@ int main(int argc, char *argv[])
 		 * KVM_STATE_NESTED_EVMCS is not lost.
 		 */
 		if (stage == 9) {
-			pr_info("Trying extra KVM_GET_NESTED_STATE/KVM_SET_NESTED_STATE cycle\n");
+			pr_debug("Trying extra KVM_GET_NESTED_STATE/KVM_SET_NESTED_STATE cycle\n");
 			vcpu = save_restore_vm(vm, vcpu);
+		}
+
+		if (stage == 12) {
+			pr_debug("Trying enlightened VMLAUNCH with an invalid PTR\n");
+			vm_install_exception_handler(vm, UD_VECTOR, guest_ud_handler);
 		}
 	}
 
