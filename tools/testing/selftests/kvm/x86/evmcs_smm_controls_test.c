@@ -56,7 +56,7 @@ static void guest_code(struct vmx_pages *vmx_pages,
 	evmcs_enable();
 
 	prepare_for_vmx_operation(vmx_pages);
-	GUEST_ASSERT(load_evmcs(hv_pages));
+	load_evmcs(hv_pages);
 	prepare_vmcs(vmx_pages, l2_guest_code);
 
 	GUEST_ASSERT(!vmlaunch());

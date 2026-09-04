@@ -245,24 +245,18 @@ static inline void evmcs_enable(void)
 	enable_evmcs = true;
 }
 
-static inline int evmcs_vmptrld(u64 vmcs_pa, void *vmcs)
+static inline void evmcs_vmptrld(u64 vmcs_pa, void *vmcs)
 {
 	current_vp_assist->current_nested_vmcs = vmcs_pa;
 	current_vp_assist->enlighten_vmentry = 1;
 
 	current_evmcs = vmcs;
-
-	return 0;
 }
 
-static inline bool load_evmcs(struct hyperv_test_pages *hv)
+static inline void load_evmcs(struct hyperv_test_pages *hv)
 {
-	if (evmcs_vmptrld(hv->enlightened_vmcs_gpa, hv->enlightened_vmcs))
-		return false;
-
+	evmcs_vmptrld(hv->enlightened_vmcs_gpa, hv->enlightened_vmcs);
 	current_evmcs->revision_id = EVMCS_VERSION;
-
-	return true;
 }
 
 static inline int evmcs_vmread(u64 encoding, u64 *value)

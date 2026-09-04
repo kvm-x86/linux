@@ -95,7 +95,7 @@ void guest_code(struct vmx_pages *vmx_pages, struct hyperv_test_pages *hv_pages,
 
 	prepare_for_vmx_operation(vmx_pages);
 	GUEST_SYNC(3);
-	GUEST_ASSERT(load_evmcs(hv_pages));
+	load_evmcs(hv_pages);
 	/* VMPTRST returns -1 until VMLAUNCH with eVMCS ptr set */
 	GUEST_ASSERT(vmptrst() == -1);
 
