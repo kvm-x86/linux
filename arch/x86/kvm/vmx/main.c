@@ -947,6 +947,17 @@ static void vt_handle_exit_irqoff(struct kvm_vcpu *vcpu)
 	}
 }
 
+noinstr void vt_handle_nmi(struct kvm_vcpu *vcpu)
+{
+	if ((u16)vmx_get_exit_reason(vcpu).basic != EXIT_REASON_EXCEPTION_NMI ||
+	    !is_nmi(vmx_get_intr_info(vcpu)))
+		return;
+
+	kvm_before_interrupt(vcpu, KVM_HANDLING_NMI);
+	x86_entry_from_kvm(EVENT_TYPE_NMI, NMI_VECTOR);
+	kvm_after_interrupt(vcpu);
+}
+
 #define VMX_REQUIRED_APICV_INHIBITS				\
 	(BIT(APICV_INHIBIT_REASON_DISABLED) |			\
 	 BIT(APICV_INHIBIT_REASON_ABSENT) |			\
