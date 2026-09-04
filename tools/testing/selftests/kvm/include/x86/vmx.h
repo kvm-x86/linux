@@ -326,7 +326,7 @@ static inline void vmxoff(void)
 	__asm__ __volatile__("vmxoff");
 }
 
-static inline int vmclear(u64 vmcs_pa)
+static inline void vmclear(u64 vmcs_pa)
 {
 	u8 ret;
 
@@ -335,7 +335,7 @@ static inline int vmclear(u64 vmcs_pa)
 		: [pa]"m"(vmcs_pa)
 		: "cc", "memory");
 
-	return ret;
+	__GUEST_ASSERT(!ret, "vmclear [0x%lx] failed\n", vmcs_pa);
 }
 
 static inline int vmptrld(u64 vmcs_pa)
