@@ -934,12 +934,12 @@ static void vt_handle_exit_irqoff(struct kvm_vcpu *vcpu)
 	if (to_vt(vcpu)->emulation_required)
 		return;
 
-	switch (vmx_get_exit_reason(vcpu).basic) {
+	switch (vt_get_exit_reason(vcpu).basic) {
 	case EXIT_REASON_EXTERNAL_INTERRUPT:
-		handle_external_interrupt_irqoff(vcpu, vmx_get_intr_info(vcpu));
+		handle_external_interrupt_irqoff(vcpu, vt_get_intr_info(vcpu));
 		break;
 	case EXIT_REASON_EXCEPTION_NMI:
-		handle_exception_irqoff(vcpu, vmx_get_intr_info(vcpu));
+		handle_exception_irqoff(vcpu, vt_get_intr_info(vcpu));
 		break;
 	case EXIT_REASON_MCE_DURING_VMENTRY:
 		kvm_machine_check();
@@ -951,8 +951,8 @@ static void vt_handle_exit_irqoff(struct kvm_vcpu *vcpu)
 
 noinstr void vt_handle_nmi(struct kvm_vcpu *vcpu)
 {
-	if ((u16)vmx_get_exit_reason(vcpu).basic != EXIT_REASON_EXCEPTION_NMI ||
-	    !is_nmi(vmx_get_intr_info(vcpu)))
+	if ((u16)vt_get_exit_reason(vcpu).basic != EXIT_REASON_EXCEPTION_NMI ||
+	    !is_nmi(vt_get_intr_info(vcpu)))
 		return;
 
 	kvm_before_interrupt(vcpu, KVM_HANDLING_NMI);
