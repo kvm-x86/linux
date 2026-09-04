@@ -309,6 +309,10 @@ struct vmx_msr_entry {
 
 #include "evmcs.h"
 
+#define GUEST_ASSERT_VMX_INSN_SUCCEEDED(insn, __r, __pa)		\
+	__GUEST_ASSERT(!__r, __stringify(insn) "[0x%lx] hit %s",	\
+		       __pa, __r < 0 ? "VM-Fail" : ex_str(__r))
+
 static inline void vmxon(u64 phys)
 {
 	u8 ret;
@@ -338,18 +342,6 @@ static inline void vmclear(u64 vmcs_pa)
 	__GUEST_ASSERT(!ret, "vmclear [0x%lx] failed\n", vmcs_pa);
 }
 
-static inline int vmptrld(u64 vmcs_pa)
-{
-	u8 ret;
-
-	__asm__ __volatile__ ("vmptrld %[pa]; setna %[ret]"
-		: [ret]"=rm"(ret)
-		: [pa]"m"(vmcs_pa)
-		: "cc", "memory");
-
-	return ret;
-}
-
 static inline int __vmptrld(u64 vmcs_pa)
 {
 	u64 error_code;
@@ -364,6 +356,13 @@ static inline int __vmptrld(u64 vmcs_pa)
 		     : "cc", "memory", KVM_ASM_SAFE_CLOBBERS);
 
 	return vector ? vector : failed ? -EINVAL : 0;
+}
+
+static inline void vmptrld(u64 vmcs_pa)
+{
+	int ret = __vmptrld(vmcs_pa);
+
+	GUEST_ASSERT_VMX_INSN_SUCCEEDED(vmptrld, ret, vmcs_pa);
 }
 
 static inline u64 vmptrst(void)

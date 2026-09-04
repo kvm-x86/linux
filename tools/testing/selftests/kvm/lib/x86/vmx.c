@@ -172,8 +172,7 @@ bool load_vmcs(struct vmx_pages *vmx)
 	*(u32 *)(vmx->vmcs) = vmcs_revision();
 	vmclear(vmx->vmcs_gpa);
 
-	if (vmptrld(vmx->vmcs_gpa))
-		return false;
+	vmptrld(vmx->vmcs_gpa);
 
 	/* Setup shadow VMCS, do not load it yet. */
 	*(u32 *)(vmx->shadow_vmcs) = vmcs_revision() | 0x80000000ul;
