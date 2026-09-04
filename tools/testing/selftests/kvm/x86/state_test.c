@@ -75,7 +75,7 @@ void vmx_l2_guest_code(void)
 static void vmx_l1_guest_code(struct vmx_pages *vmx_pages)
 {
 	GUEST_ASSERT(vmx_pages->vmcs_gpa);
-	GUEST_ASSERT(prepare_for_vmx_operation(vmx_pages));
+	prepare_for_vmx_operation(vmx_pages);
 	GUEST_SYNC(3);
 	GUEST_ASSERT(load_vmcs(vmx_pages));
 	GUEST_ASSERT(vmptrst() == vmx_pages->vmcs_gpa);

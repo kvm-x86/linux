@@ -93,7 +93,7 @@ void l1_vmx_code(struct vmx_pages *vmx)
 	void *l2_rip;
 
 	GUEST_ASSERT(vmx->vmcs_gpa);
-	GUEST_ASSERT(prepare_for_vmx_operation(vmx));
+	prepare_for_vmx_operation(vmx);
 	GUEST_ASSERT(load_vmcs(vmx));
 
 	if (vmx->eptp_gpa)

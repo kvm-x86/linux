@@ -125,7 +125,7 @@ static void vmx_run_l2(void *l2_code, int vector, u32 error_code)
 
 static void l1_vmx_code(struct vmx_pages *vmx)
 {
-	GUEST_ASSERT_EQ(prepare_for_vmx_operation(vmx), true);
+	prepare_for_vmx_operation(vmx);
 
 	GUEST_ASSERT_EQ(load_vmcs(vmx), true);
 

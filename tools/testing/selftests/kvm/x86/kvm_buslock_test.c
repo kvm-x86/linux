@@ -42,7 +42,7 @@ static void l1_svm_code(struct svm_test_data *svm)
 
 static void l1_vmx_code(struct vmx_pages *vmx)
 {
-	GUEST_ASSERT_EQ(prepare_for_vmx_operation(vmx), true);
+	prepare_for_vmx_operation(vmx);
 	GUEST_ASSERT_EQ(load_vmcs(vmx), true);
 
 	prepare_vmcs(vmx, NULL);

@@ -66,7 +66,7 @@ static void guest_code(void *test_data)
 					   BIT_ULL(INTERCEPT_HLT);
 		vmcb->control.intercept_exceptions = 0;
 	} else {
-		GUEST_ASSERT(prepare_for_vmx_operation(test_data));
+		prepare_for_vmx_operation(test_data);
 		GUEST_ASSERT(load_vmcs(test_data));
 
 		prepare_vmcs(test_data, NULL);

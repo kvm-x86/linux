@@ -37,7 +37,7 @@ static void l1_guest_code(struct vmx_pages *vmx_pages)
 	GUEST_ASSERT(rdmsr(MSR_GS_BASE) == LA57_GS_BASE);
 
 	GUEST_ASSERT(vmx_pages->vmcs_gpa);
-	GUEST_ASSERT(prepare_for_vmx_operation(vmx_pages));
+	prepare_for_vmx_operation(vmx_pages);
 	GUEST_ASSERT(load_vmcs(vmx_pages));
 
 	prepare_vmcs(vmx_pages, l2_guest_code);

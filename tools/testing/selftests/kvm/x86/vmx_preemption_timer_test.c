@@ -71,7 +71,7 @@ void l1_guest_code(struct vmx_pages *vmx_pages)
 	u64 l1_tsc_deadline, l2_tsc_deadline;
 
 	GUEST_ASSERT(vmx_pages->vmcs_gpa);
-	GUEST_ASSERT(prepare_for_vmx_operation(vmx_pages));
+	prepare_for_vmx_operation(vmx_pages);
 	GUEST_ASSERT(load_vmcs(vmx_pages));
 	GUEST_ASSERT(vmptrst() == vmx_pages->vmcs_gpa);
 

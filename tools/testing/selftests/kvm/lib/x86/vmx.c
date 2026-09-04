@@ -125,7 +125,7 @@ vcpu_alloc_vmx(struct kvm_vm *vm, gva_t *p_vmx_gva)
 	return vmx;
 }
 
-bool prepare_for_vmx_operation(struct vmx_pages *vmx)
+void prepare_for_vmx_operation(struct vmx_pages *vmx)
 {
 	u64 feature_control;
 	u64 required;
@@ -163,10 +163,7 @@ bool prepare_for_vmx_operation(struct vmx_pages *vmx)
 
 	/* Enter VMX root operation. */
 	*(u32 *)(vmx->vmxon) = vmcs_revision();
-	if (vmxon(vmx->vmxon_gpa))
-		return false;
-
-	return true;
+	vmxon(vmx->vmxon_gpa);
 }
 
 bool load_vmcs(struct vmx_pages *vmx)

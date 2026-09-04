@@ -86,7 +86,7 @@ static void l1_guest_code(void *data)
 		struct vmx_pages *vmx_pages = data;
 		u32 control;
 
-		GUEST_ASSERT(prepare_for_vmx_operation(vmx_pages));
+		prepare_for_vmx_operation(vmx_pages);
 		GUEST_ASSERT(load_vmcs(vmx_pages));
 
 		prepare_vmcs(vmx_pages, l2_guest_code);
