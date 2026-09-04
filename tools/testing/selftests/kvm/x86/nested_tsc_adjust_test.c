@@ -90,13 +90,13 @@ static void l1_guest_code(void *data)
 		load_vmcs(vmx_pages);
 
 		prepare_vmcs(vmx_pages, l2_guest_code);
-		control = vmreadz(CPU_BASED_VM_EXEC_CONTROL);
+		control = vmread(CPU_BASED_VM_EXEC_CONTROL);
 		control |= CPU_BASED_USE_MSR_BITMAPS | CPU_BASED_USE_TSC_OFFSETTING;
 		vmwrite(CPU_BASED_VM_EXEC_CONTROL, control);
 		vmwrite(TSC_OFFSET, TSC_OFFSET_VALUE);
 
 		vmlaunch();
-		GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
+		GUEST_ASSERT(vmread(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
 	} else {
 		struct svm_test_data *svm = data;
 

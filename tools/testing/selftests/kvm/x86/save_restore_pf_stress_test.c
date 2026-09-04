@@ -106,8 +106,8 @@ static void l1_vmx_code(struct vmx_pages *vmx)
 
 	vmlaunch();
 	while (1) {
-		GUEST_ASSERT_EQ(vmreadz(VM_EXIT_REASON), EXIT_REASON_EXCEPTION_NMI);
-		GUEST_ASSERT_EQ(vmreadz(VM_EXIT_INTR_INFO) & 0xff, UD_VECTOR);
+		GUEST_ASSERT_EQ(vmread(VM_EXIT_REASON), EXIT_REASON_EXCEPTION_NMI);
+		GUEST_ASSERT_EQ(vmread(VM_EXIT_INTR_INFO) & 0xff, UD_VECTOR);
 		vmresume();
 	}
 }

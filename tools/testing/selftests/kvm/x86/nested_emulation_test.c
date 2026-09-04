@@ -74,7 +74,7 @@ static void guest_code(void *test_data)
 		vmwrite(GUEST_RIP, (u64)l2_guest_code);
 		vmwrite(EXCEPTION_BITMAP, 0);
 
-		vmwrite(CPU_BASED_VM_EXEC_CONTROL, vmreadz(CPU_BASED_VM_EXEC_CONTROL) |
+		vmwrite(CPU_BASED_VM_EXEC_CONTROL, vmread(CPU_BASED_VM_EXEC_CONTROL) |
 						   CPU_BASED_PAUSE_EXITING |
 						   CPU_BASED_HLT_EXITING);
 	}
@@ -106,9 +106,9 @@ static void guest_code(void *test_data)
 				vmlaunch();
 			else
 				vmresume();
-			exit_reason = vmreadz(VM_EXIT_REASON);
-			exit_insn_len = vmreadz(VM_EXIT_INSTRUCTION_LEN);
-			GUEST_ASSERT_EQ(vmreadz(GUEST_RIP), (u64)l2_instruction);
+			exit_reason = vmread(VM_EXIT_REASON);
+			exit_insn_len = vmread(VM_EXIT_INSTRUCTION_LEN);
+			GUEST_ASSERT_EQ(vmread(GUEST_RIP), (u64)l2_instruction);
 		}
 
 		__GUEST_ASSERT(exit_reason == insn->exit_reason[f],

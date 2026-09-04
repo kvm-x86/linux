@@ -91,14 +91,14 @@ void l1_guest_code(struct vmx_pages *vmx_pages)
 		return;
 
 	vmlaunch();
-	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
-	vmwrite(GUEST_RIP, vmreadz(GUEST_RIP) + vmreadz(VM_EXIT_INSTRUCTION_LEN));
+	GUEST_ASSERT(vmread(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
+	vmwrite(GUEST_RIP, vmread(GUEST_RIP) + vmread(VM_EXIT_INSTRUCTION_LEN));
 
 	/*
 	 * Turn on PIN control and resume the guest
 	 */
 	vmwrite(PIN_BASED_VM_EXEC_CONTROL,
-		vmreadz(PIN_BASED_VM_EXEC_CONTROL) | PIN_BASED_VMX_PREEMPTION_TIMER);
+		vmread(PIN_BASED_VM_EXEC_CONTROL) | PIN_BASED_VMX_PREEMPTION_TIMER);
 
 	vmwrite(VMX_PREEMPTION_TIMER_VALUE, PREEMPTION_TIMER_VALUE);
 
@@ -121,7 +121,7 @@ void l1_guest_code(struct vmx_pages *vmx_pages)
 	/*
 	 * Ensure the exit from L2 is due to preemption timer expiry
 	 */
-	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_PREEMPTION_TIMER);
+	GUEST_ASSERT(vmread(VM_EXIT_REASON) == EXIT_REASON_PREEMPTION_TIMER);
 
 	l1_tsc_deadline = l1_vmx_pt_start +
 		(PREEMPTION_TIMER_VALUE << vmx_pt_rate);

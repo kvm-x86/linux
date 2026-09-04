@@ -386,7 +386,7 @@ static inline void vmcall(void)
 			       "r10", "r11", "r12", "r13", "r14", "r15");
 }
 
-static inline int vmread(u64 encoding, u64 *value)
+static inline int __vmread(u64 encoding, u64 *value)
 {
 	u64 tmp;
 	u8 ret;
@@ -399,18 +399,17 @@ static inline int vmread(u64 encoding, u64 *value)
 		: [encoding]"r"(encoding)
 		: "cc", "memory");
 
-	*value = tmp;
+	if (!ret)
+		*value = tmp;
 	return ret;
 }
 
-/*
- * A wrapper around vmread that ignores errors and returns zero if the
- * vmread instruction fails.
- */
-static inline u64 vmreadz(u64 encoding)
+static inline u64 vmread(u64 encoding)
 {
 	u64 value = 0;
-	vmread(encoding, &value);
+
+	__GUEST_ASSERT(!__vmread(encoding, &value),
+		       "vmread[0x%lx] hit VM-Fail", encoding);
 	return value;
 }
 

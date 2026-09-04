@@ -46,16 +46,16 @@ static void l1_vmx_code(struct vmx_pages *vmx_pages)
 	prepare_vmcs(vmx_pages, l2_guest_code);
 
 	/* Try to run L2 with invalid CR3 and make sure it fails */
-	save_cr3 = vmreadz(GUEST_CR3);
+	save_cr3 = vmread(GUEST_CR3);
 	vmwrite(GUEST_CR3, -1ull);
 	vmlaunch();
-	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) ==
+	GUEST_ASSERT(vmread(VM_EXIT_REASON) ==
 		     (EXIT_REASON_FAILED_VMENTRY | EXIT_REASON_INVALID_STATE));
 
 	/* Now restore CR3 and make sure L2 runs successfully */
 	vmwrite(GUEST_CR3, save_cr3);
 	vmlaunch();
-	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
+	GUEST_ASSERT(vmread(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
 
 	GUEST_DONE();
 }

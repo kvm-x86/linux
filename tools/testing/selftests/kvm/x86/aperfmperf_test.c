@@ -80,7 +80,7 @@ static void l1_vmx_code(struct vmx_pages *vmx)
 	 * in the VMCS by prepare_vmcs()), as MSR exiting mandatory on Intel.
 	 */
 	vmwrite(CPU_BASED_VM_EXEC_CONTROL,
-		vmreadz(CPU_BASED_VM_EXEC_CONTROL) | CPU_BASED_USE_MSR_BITMAPS);
+		vmread(CPU_BASED_VM_EXEC_CONTROL) | CPU_BASED_USE_MSR_BITMAPS);
 
 	vmwrite(GUEST_RIP, (u64)l2_guest_code);
 	vmlaunch();

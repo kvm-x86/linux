@@ -52,13 +52,13 @@ static void l1_guest_code(struct vmx_pages *vmx_pages)
 	 * library hasn't enabled it.  Because KVM selftests jump directly to
 	 * 64-bit mode, unrestricted guest support isn't required.
 	 */
-	GUEST_ASSERT(!(vmreadz(CPU_BASED_VM_EXEC_CONTROL) & CPU_BASED_ACTIVATE_SECONDARY_CONTROLS) ||
-		     !(vmreadz(SECONDARY_VM_EXEC_CONTROL) & SECONDARY_EXEC_UNRESTRICTED_GUEST));
+	GUEST_ASSERT(!(vmread(CPU_BASED_VM_EXEC_CONTROL) & CPU_BASED_ACTIVATE_SECONDARY_CONTROLS) ||
+		     !(vmread(SECONDARY_VM_EXEC_CONTROL) & SECONDARY_EXEC_UNRESTRICTED_GUEST));
 
 	vmlaunch();
 
 	/* L2 should triple fault after main() stuffs invalid guest state. */
-	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_TRIPLE_FAULT);
+	GUEST_ASSERT(vmread(VM_EXIT_REASON) == EXIT_REASON_TRIPLE_FAULT);
 	GUEST_DONE();
 }
 

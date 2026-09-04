@@ -52,13 +52,13 @@ static void l1_guest_code(struct vmx_pages *vmx_pages)
 	pml4_pa = pml5[0] & PHYSICAL_PAGE_MASK;
 	vmwrite(GUEST_CR3, pml4_pa);
 
-	guest_cr4 = vmreadz(GUEST_CR4);
+	guest_cr4 = vmread(GUEST_CR4);
 	guest_cr4 &= ~X86_CR4_LA57;
 	vmwrite(GUEST_CR4, guest_cr4);
 
 	vmlaunch();
 
-	exit_reason = vmreadz(VM_EXIT_REASON);
+	exit_reason = vmread(VM_EXIT_REASON);
 	GUEST_ASSERT(exit_reason == EXIT_REASON_VMCALL);
 }
 

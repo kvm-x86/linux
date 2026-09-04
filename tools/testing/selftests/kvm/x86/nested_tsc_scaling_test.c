@@ -112,11 +112,11 @@ static void l1_vmx_code(struct vmx_pages *vmx_pages)
 	prepare_vmcs(vmx_pages, l2_guest_code);
 
 	/* enable TSC offsetting and TSC scaling for L2 */
-	control = vmreadz(CPU_BASED_VM_EXEC_CONTROL);
+	control = vmread(CPU_BASED_VM_EXEC_CONTROL);
 	control |= CPU_BASED_USE_MSR_BITMAPS | CPU_BASED_USE_TSC_OFFSETTING;
 	vmwrite(CPU_BASED_VM_EXEC_CONTROL, control);
 
-	control = vmreadz(SECONDARY_VM_EXEC_CONTROL);
+	control = vmread(SECONDARY_VM_EXEC_CONTROL);
 	control |= SECONDARY_EXEC_TSC_SCALING;
 	vmwrite(SECONDARY_VM_EXEC_CONTROL, control);
 
@@ -126,7 +126,7 @@ static void l1_vmx_code(struct vmx_pages *vmx_pages)
 
 	/* launch L2 */
 	vmlaunch();
-	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
+	GUEST_ASSERT(vmread(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
 
 	/* check that L1's frequency still looks good */
 	check_tsc_freq(UCHECK_L1);

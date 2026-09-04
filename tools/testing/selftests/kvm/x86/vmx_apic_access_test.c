@@ -43,25 +43,25 @@ static void l1_guest_code(struct vmx_pages *vmx_pages, unsigned long high_gpa)
 
 	/* Prepare the VMCS for L2 execution. */
 	prepare_vmcs(vmx_pages, l2_guest_code);
-	control = vmreadz(CPU_BASED_VM_EXEC_CONTROL);
+	control = vmread(CPU_BASED_VM_EXEC_CONTROL);
 	control |= CPU_BASED_ACTIVATE_SECONDARY_CONTROLS;
 	vmwrite(CPU_BASED_VM_EXEC_CONTROL, control);
-	control = vmreadz(SECONDARY_VM_EXEC_CONTROL);
+	control = vmread(SECONDARY_VM_EXEC_CONTROL);
 	control |= SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES;
 	vmwrite(SECONDARY_VM_EXEC_CONTROL, control);
 	vmwrite(APIC_ACCESS_ADDR, vmx_pages->apic_access_gpa);
 
 	/* Try to launch L2 with the memory-backed APIC-access address. */
-	GUEST_SYNC(vmreadz(APIC_ACCESS_ADDR));
+	GUEST_SYNC(vmread(APIC_ACCESS_ADDR));
 	vmlaunch();
-	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
+	GUEST_ASSERT(vmread(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
 
 	vmwrite(APIC_ACCESS_ADDR, high_gpa);
 
 	/* Try to resume L2 with the unbacked APIC-access address. */
-	GUEST_SYNC(vmreadz(APIC_ACCESS_ADDR));
+	GUEST_SYNC(vmread(APIC_ACCESS_ADDR));
 	vmresume();
-	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
+	GUEST_ASSERT(vmread(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
 
 	GUEST_DONE();
 }
