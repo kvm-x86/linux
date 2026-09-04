@@ -87,20 +87,20 @@ static void vmx_l1_guest_code(struct vmx_pages *vmx_pages)
 
 	GUEST_SYNC(5);
 	GUEST_ASSERT(vmptrst() == vmx_pages->vmcs_gpa);
-	GUEST_ASSERT(!vmlaunch());
+	vmlaunch();
 	GUEST_ASSERT(vmptrst() == vmx_pages->vmcs_gpa);
 	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
 
 	/* Check that the launched state is preserved.  */
-	GUEST_ASSERT(vmlaunch());
+	GUEST_ASSERT(__vmlaunch());
 
-	GUEST_ASSERT(!vmresume());
+	vmresume();
 	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
 
 	GUEST_SYNC(7);
 	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
 
-	GUEST_ASSERT(!vmresume());
+	vmresume();
 	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
 
 	vmwrite(GUEST_RIP, vmreadz(GUEST_RIP) + 3);
@@ -109,27 +109,27 @@ static void vmx_l1_guest_code(struct vmx_pages *vmx_pages)
 	vmwrite(VMCS_LINK_POINTER, vmx_pages->shadow_vmcs_gpa);
 
 	vmptrld(vmx_pages->shadow_vmcs_gpa);
-	GUEST_ASSERT(vmlaunch());
+	GUEST_ASSERT(__vmlaunch());
 	GUEST_SYNC(8);
-	GUEST_ASSERT(vmlaunch());
-	GUEST_ASSERT(vmresume());
+	GUEST_ASSERT(__vmlaunch());
+	GUEST_ASSERT(__vmresume());
 
 	vmwrite(GUEST_RIP, 0xc0ffee);
 	GUEST_SYNC(9);
 	GUEST_ASSERT(vmreadz(GUEST_RIP) == 0xc0ffee);
 
 	vmptrld(vmx_pages->vmcs_gpa);
-	GUEST_ASSERT(!vmresume());
+	vmresume();
 	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
 
 	vmptrld(vmx_pages->shadow_vmcs_gpa);
 	GUEST_ASSERT(vmreadz(GUEST_RIP) == 0xc0ffffee);
-	GUEST_ASSERT(vmlaunch());
-	GUEST_ASSERT(vmresume());
+	GUEST_ASSERT(__vmlaunch());
+	GUEST_ASSERT(__vmresume());
 	GUEST_SYNC(13);
 	GUEST_ASSERT(vmreadz(GUEST_RIP) == 0xc0ffffee);
-	GUEST_ASSERT(vmlaunch());
-	GUEST_ASSERT(vmresume());
+	GUEST_ASSERT(__vmlaunch());
+	GUEST_ASSERT(__vmresume());
 }
 
 static void __attribute__((__flatten__)) guest_code(void *arg)

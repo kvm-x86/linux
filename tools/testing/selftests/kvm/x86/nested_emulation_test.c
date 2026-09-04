@@ -102,7 +102,10 @@ static void guest_code(void *test_data)
 			exit_insn_len = vmcb->control.next_rip - vmcb->save.rip;
 			GUEST_ASSERT_EQ(vmcb->save.rip, (u64)l2_instruction);
 		} else {
-			GUEST_ASSERT_EQ(i ? vmresume() : vmlaunch(), 0);
+			if (!i)
+				vmlaunch();
+			else
+				vmresume();
 			exit_reason = vmreadz(VM_EXIT_REASON);
 			exit_insn_len = vmreadz(VM_EXIT_INSTRUCTION_LEN);
 			GUEST_ASSERT_EQ(vmreadz(GUEST_RIP), (u64)l2_instruction);

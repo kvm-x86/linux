@@ -56,7 +56,7 @@ static void l1_guest_code(struct vmx_pages *vmx_pages)
 	guest_cr4 &= ~X86_CR4_LA57;
 	vmwrite(GUEST_CR4, guest_cr4);
 
-	GUEST_ASSERT(!vmlaunch());
+	vmlaunch();
 
 	exit_reason = vmreadz(VM_EXIT_REASON);
 	GUEST_ASSERT(exit_reason == EXIT_REASON_VMCALL);

@@ -95,7 +95,7 @@ static void l1_guest_code(void *data)
 		vmwrite(CPU_BASED_VM_EXEC_CONTROL, control);
 		vmwrite(TSC_OFFSET, TSC_OFFSET_VALUE);
 
-		GUEST_ASSERT(!vmlaunch());
+		vmlaunch();
 		GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
 	} else {
 		struct svm_test_data *svm = data;

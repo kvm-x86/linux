@@ -62,7 +62,7 @@ static void l1_guest_code(struct vmx_pages *vmx_pages)
 	 * Run L2 to switch to x2APIC mode, which in turn will uninhibit APICv,
 	 * as KVM should force the APIC ID back to its default.
 	 */
-	GUEST_ASSERT(!vmlaunch());
+	vmlaunch();
 	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
 	vmwrite(GUEST_RIP, vmreadz(GUEST_RIP) + vmreadz(VM_EXIT_INSTRUCTION_LEN));
 	GUEST_ASSERT(rdmsr(MSR_IA32_APICBASE) & MSR_IA32_APICBASE_EXTD);
@@ -90,7 +90,7 @@ static void l1_guest_code(struct vmx_pages *vmx_pages)
 	 * handles the x2APIC => xAPIC transition and inhibits APICv while L2
 	 * is active.
 	 */
-	GUEST_ASSERT(!vmresume());
+	vmresume();
 	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
 	GUEST_ASSERT(!(rdmsr(MSR_IA32_APICBASE) & MSR_IA32_APICBASE_EXTD));
 

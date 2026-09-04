@@ -30,7 +30,7 @@ void l1_guest_code_vmx(struct vmx_pages *vmx)
 
 	prepare_vmcs(vmx, l2_guest_code);
 
-	GUEST_ASSERT(!vmlaunch());
+	vmlaunch();
 	/* L2 should triple fault after a triple fault event injected. */
 	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_TRIPLE_FAULT);
 	GUEST_DONE();

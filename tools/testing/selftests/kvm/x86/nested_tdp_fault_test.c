@@ -60,7 +60,7 @@ static void l1_vmx_code(struct vmx_pages *vmx, u64 expected_fault_gpa,
 
 	prepare_vmcs(vmx, l2_entry);
 
-	GUEST_ASSERT(!vmlaunch());
+	vmlaunch();
 
 	/* Verify we got an EPT violation exit */
 	__GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_EPT_VIOLATION,

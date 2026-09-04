@@ -362,14 +362,14 @@ static inline u64 vmptrst(void)
 int __vmlaunch(void);
 int __vmresume(void);
 
-static inline int vmlaunch(void)
+static inline void vmlaunch(void)
 {
-	return __vmlaunch();
+	__GUEST_ASSERT(!__vmlaunch(), "vmlaunch hit VM-Fail");
 }
 
-static inline int vmresume(void)
+static inline void vmresume(void)
 {
-	return __vmresume();
+	__GUEST_ASSERT(!__vmresume(), "vmresume hit VM-Fail");
 }
 
 static inline void vmcall(void)

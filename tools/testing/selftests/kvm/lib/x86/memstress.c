@@ -40,7 +40,7 @@ static void l1_vmx_code(struct vmx_pages *vmx, u64 vcpu_id)
 	*(u64 *)vmx->stack = vcpu_id;
 	prepare_vmcs(vmx, memstress_l2_guest_entry);
 
-	GUEST_ASSERT(!vmlaunch());
+	vmlaunch();
 	GUEST_ASSERT_EQ(vmreadz(VM_EXIT_REASON), EXIT_REASON_VMCALL);
 	GUEST_DONE();
 }

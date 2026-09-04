@@ -36,7 +36,7 @@ static void l1_vmx_code(struct vmx_pages *vmx_pages)
 	/* Prepare the VMCS for L2 execution. */
 	prepare_vmcs(vmx_pages, l2_guest_code);
 
-	GUEST_ASSERT(!vmlaunch());
+	vmlaunch();
 	GUEST_ASSERT(0);
 }
 

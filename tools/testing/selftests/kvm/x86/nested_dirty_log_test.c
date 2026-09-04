@@ -104,7 +104,7 @@ void l1_vmx_code(struct vmx_pages *vmx)
 	prepare_vmcs(vmx, l2_rip);
 
 	GUEST_SYNC(TEST_SYNC_NO_FAULT);
-	GUEST_ASSERT(!vmlaunch());
+	vmlaunch();
 	GUEST_SYNC(TEST_SYNC_NO_FAULT);
 	GUEST_ASSERT_EQ(vmreadz(VM_EXIT_REASON), EXIT_REASON_VMCALL);
 	GUEST_DONE();

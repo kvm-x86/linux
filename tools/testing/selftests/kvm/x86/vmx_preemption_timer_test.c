@@ -90,7 +90,7 @@ void l1_guest_code(struct vmx_pages *vmx_pages)
 	    !(ctrl_exit_rev.clr & VM_EXIT_SAVE_VMX_PREEMPTION_TIMER))
 		return;
 
-	GUEST_ASSERT(!vmlaunch());
+	vmlaunch();
 	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
 	vmwrite(GUEST_RIP, vmreadz(GUEST_RIP) + vmreadz(VM_EXIT_INSTRUCTION_LEN));
 
@@ -110,7 +110,7 @@ void l1_guest_code(struct vmx_pages *vmx_pages)
 
 	l1_vmx_pt_start = (rdtsc() >> vmx_pt_rate) << vmx_pt_rate;
 
-	GUEST_ASSERT(!vmresume());
+	vmresume();
 
 	l1_vmx_pt_finish = rdtsc();
 

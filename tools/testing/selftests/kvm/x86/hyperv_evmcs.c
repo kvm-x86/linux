@@ -105,7 +105,7 @@ void guest_code(struct vmx_pages *vmx_pages, struct hyperv_test_pages *hv_pages,
 
 	GUEST_SYNC(5);
 	current_evmcs->revision_id = -1u;
-	GUEST_ASSERT(vmlaunch());
+	GUEST_ASSERT(__vmlaunch());
 	current_evmcs->revision_id = EVMCS_VERSION;
 	GUEST_SYNC(6);
 
@@ -120,7 +120,7 @@ void guest_code(struct vmx_pages *vmx_pages, struct hyperv_test_pages *hv_pages,
 	current_vp_assist->nested_control.features.directhypercall = 1;
 	*(u32 *)(hv_pages->partition_assist) = 0;
 
-	GUEST_ASSERT(!vmlaunch());
+	vmlaunch();
 	GUEST_ASSERT_EQ(vmreadz(VM_EXIT_REASON), EXIT_REASON_EXCEPTION_NMI);
 	GUEST_ASSERT_EQ((vmreadz(VM_EXIT_INTR_INFO) & 0xff), NMI_VECTOR);
 	GUEST_ASSERT(vmptrst() == hv_pages->enlightened_vmcs_gpa);
@@ -130,7 +130,7 @@ void guest_code(struct vmx_pages *vmx_pages, struct hyperv_test_pages *hv_pages,
 	 * up-to-date (RIP points where it should and not at the beginning
 	 * of l2_guest_code(). GUEST_SYNC(9) checks that.
 	 */
-	GUEST_ASSERT(!vmresume());
+	vmresume();
 
 	GUEST_SYNC(10);
 
@@ -141,13 +141,13 @@ void guest_code(struct vmx_pages *vmx_pages, struct hyperv_test_pages *hv_pages,
 	vmwrite(CPU_BASED_VM_EXEC_CONTROL, vmreadz(CPU_BASED_VM_EXEC_CONTROL) |
 		CPU_BASED_USE_MSR_BITMAPS);
 	__set_bit(MSR_FS_BASE & 0x1fff, vmx_pages->msr + 0x400);
-	GUEST_ASSERT(!vmresume());
+	vmresume();
 	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_MSR_READ);
 	current_evmcs->guest_rip += 2; /* rdmsr */
 
 	/* Enable enlightened MSR bitmap */
 	current_evmcs->hv_enlightenments_control.msr_bitmap = 1;
-	GUEST_ASSERT(!vmresume());
+	vmresume();
 	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_MSR_READ);
 	current_evmcs->guest_rip += 2; /* rdmsr */
 
@@ -155,14 +155,14 @@ void guest_code(struct vmx_pages *vmx_pages, struct hyperv_test_pages *hv_pages,
 	__set_bit(MSR_GS_BASE & 0x1fff, vmx_pages->msr + 0x400);
 	/* Make sure HV_VMX_ENLIGHTENED_CLEAN_FIELD_MSR_BITMAP is set */
 	current_evmcs->hv_clean_fields |= HV_VMX_ENLIGHTENED_CLEAN_FIELD_MSR_BITMAP;
-	GUEST_ASSERT(!vmresume());
+	vmresume();
 	/* Make sure we don't see EXIT_REASON_MSR_READ here so eMSR bitmap works */
 	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
 	current_evmcs->guest_rip += 3; /* vmcall */
 
 	/* Now tell KVM we've changed MSR-Bitmap */
 	current_evmcs->hv_clean_fields &= ~HV_VMX_ENLIGHTENED_CLEAN_FIELD_MSR_BITMAP;
-	GUEST_ASSERT(!vmresume());
+	vmresume();
 	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_MSR_READ);
 	current_evmcs->guest_rip += 2; /* rdmsr */
 
@@ -170,15 +170,15 @@ void guest_code(struct vmx_pages *vmx_pages, struct hyperv_test_pages *hv_pages,
 	 * L2 TLB flush test. First VMCALL should be handled directly by L0,
 	 * no VMCALL exit expected.
 	 */
-	GUEST_ASSERT(!vmresume());
+	vmresume();
 	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_MSR_READ);
 	current_evmcs->guest_rip += 2; /* rdmsr */
 	/* Enable synthetic vmexit */
 	*(u32 *)(hv_pages->partition_assist) = 1;
-	GUEST_ASSERT(!vmresume());
+	vmresume();
 	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == HV_VMX_SYNTHETIC_EXIT_REASON_TRAP_AFTER_FLUSH);
 
-	GUEST_ASSERT(!vmresume());
+	vmresume();
 	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
 	GUEST_SYNC(11);
 
@@ -192,7 +192,7 @@ void guest_code(struct vmx_pages *vmx_pages, struct hyperv_test_pages *hv_pages,
 	 */
 	GUEST_SYNC(12);
 	evmcs_vmptrld(0xdeadbeef, hv_pages->enlightened_vmcs);
-	GUEST_ASSERT(vmlaunch());
+	GUEST_ASSERT(__vmlaunch());
 	GUEST_ASSERT(ud_count == 1);
 	GUEST_DONE();
 }

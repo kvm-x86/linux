@@ -104,11 +104,11 @@ static void l1_vmx_code(struct vmx_pages *vmx)
 
 	GUEST_ASSERT(!vmwrite(EXCEPTION_BITMAP, BIT(UD_VECTOR)));
 
-	GUEST_ASSERT(!vmlaunch());
+	vmlaunch();
 	while (1) {
 		GUEST_ASSERT_EQ(vmreadz(VM_EXIT_REASON), EXIT_REASON_EXCEPTION_NMI);
 		GUEST_ASSERT_EQ(vmreadz(VM_EXIT_INTR_INFO) & 0xff, UD_VECTOR);
-		GUEST_ASSERT(!vmresume());
+		vmresume();
 	}
 }
 

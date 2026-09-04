@@ -112,7 +112,10 @@ static void vmx_run_l2(void *l2_code, int vector, u32 error_code)
 {
 	GUEST_ASSERT(!vmwrite(GUEST_RIP, (u64)l2_code));
 
-	GUEST_ASSERT_EQ(vector == SS_VECTOR ? vmlaunch() : vmresume(), 0);
+	if (vector == SS_VECTOR)
+		vmlaunch();
+	else
+		vmresume();
 
 	if (vector == FAKE_TRIPLE_FAULT_VECTOR)
 		return;

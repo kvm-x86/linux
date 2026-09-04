@@ -53,14 +53,14 @@ static void l1_guest_code(struct vmx_pages *vmx_pages, unsigned long high_gpa)
 
 	/* Try to launch L2 with the memory-backed APIC-access address. */
 	GUEST_SYNC(vmreadz(APIC_ACCESS_ADDR));
-	GUEST_ASSERT(!vmlaunch());
+	vmlaunch();
 	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
 
 	vmwrite(APIC_ACCESS_ADDR, high_gpa);
 
 	/* Try to resume L2 with the unbacked APIC-access address. */
 	GUEST_SYNC(vmreadz(APIC_ACCESS_ADDR));
-	GUEST_ASSERT(!vmresume());
+	vmresume();
 	GUEST_ASSERT(vmreadz(VM_EXIT_REASON) == EXIT_REASON_VMCALL);
 
 	GUEST_DONE();
