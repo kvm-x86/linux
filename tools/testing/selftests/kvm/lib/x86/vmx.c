@@ -251,8 +251,8 @@ static inline void init_vmcs_control_fields(struct vmx_pages *vmx)
 {
 	u32 sec_exec_ctl = 0;
 
-	vmwrite(VIRTUAL_PROCESSOR_ID, 0);
-	vmwrite(POSTED_INTR_NV, 0);
+	__vmwrite(VIRTUAL_PROCESSOR_ID, 0);
+	__vmwrite(POSTED_INTR_NV, 0);
 
 	vmwrite(PIN_BASED_VM_EXEC_CONTROL, rdmsr(MSR_IA32_VMX_TRUE_PINBASED_CTLS));
 
@@ -269,7 +269,7 @@ static inline void init_vmcs_control_fields(struct vmx_pages *vmx)
 		sec_exec_ctl |= SECONDARY_EXEC_ENABLE_EPT;
 	}
 
-	if (!vmwrite(SECONDARY_VM_EXEC_CONTROL, sec_exec_ctl))
+	if (!__vmwrite(SECONDARY_VM_EXEC_CONTROL, sec_exec_ctl))
 		vmwrite(CPU_BASED_VM_EXEC_CONTROL,
 			rdmsr(MSR_IA32_VMX_TRUE_PROCBASED_CTLS) | CPU_BASED_ACTIVATE_SECONDARY_CONTROLS);
 	else {
@@ -289,16 +289,16 @@ static inline void init_vmcs_control_fields(struct vmx_pages *vmx)
 		VM_ENTRY_IA32E_MODE);		  /* 64-bit guest */
 	vmwrite(VM_ENTRY_MSR_LOAD_COUNT, 0);
 	vmwrite(VM_ENTRY_INTR_INFO_FIELD, 0);
-	vmwrite(TPR_THRESHOLD, 0);
+	__vmwrite(TPR_THRESHOLD, 0);
 
 	vmwrite(CR0_GUEST_HOST_MASK, 0);
 	vmwrite(CR4_GUEST_HOST_MASK, 0);
 	vmwrite(CR0_READ_SHADOW, get_cr0());
 	vmwrite(CR4_READ_SHADOW, get_cr4());
 
-	vmwrite(MSR_BITMAP, vmx->msr_gpa);
-	vmwrite(VMREAD_BITMAP, vmx->vmread_gpa);
-	vmwrite(VMWRITE_BITMAP, vmx->vmwrite_gpa);
+	__vmwrite(MSR_BITMAP, vmx->msr_gpa);
+	__vmwrite(VMREAD_BITMAP, vmx->vmread_gpa);
+	__vmwrite(VMWRITE_BITMAP, vmx->vmwrite_gpa);
 }
 
 /*
@@ -356,15 +356,15 @@ static inline void init_vmcs_guest_state(void *rip, void *rsp)
 	vmwrite(GUEST_GS_SELECTOR, vmreadz(HOST_GS_SELECTOR));
 	vmwrite(GUEST_LDTR_SELECTOR, 0);
 	vmwrite(GUEST_TR_SELECTOR, vmreadz(HOST_TR_SELECTOR));
-	vmwrite(GUEST_INTR_STATUS, 0);
-	vmwrite(GUEST_PML_INDEX, 0);
+	__vmwrite(GUEST_INTR_STATUS, 0);
+	__vmwrite(GUEST_PML_INDEX, 0);
 
 	vmwrite(VMCS_LINK_POINTER, -1ll);
 	vmwrite(GUEST_IA32_DEBUGCTL, 0);
-	vmwrite(GUEST_IA32_PAT, vmreadz(HOST_IA32_PAT));
-	vmwrite(GUEST_IA32_EFER, vmreadz(HOST_IA32_EFER));
-	vmwrite(GUEST_IA32_PERF_GLOBAL_CTRL,
-		vmreadz(HOST_IA32_PERF_GLOBAL_CTRL));
+	__vmwrite(GUEST_IA32_PAT, vmreadz(HOST_IA32_PAT));
+	__vmwrite(GUEST_IA32_EFER, vmreadz(HOST_IA32_EFER));
+	__vmwrite(GUEST_IA32_PERF_GLOBAL_CTRL,
+		  vmreadz(HOST_IA32_PERF_GLOBAL_CTRL));
 
 	vmwrite(GUEST_ES_LIMIT, -1);
 	vmwrite(GUEST_CS_LIMIT, -1);
@@ -391,7 +391,7 @@ static inline void init_vmcs_guest_state(void *rip, void *rsp)
 	vmwrite(GUEST_INTERRUPTIBILITY_INFO, 0);
 	vmwrite(GUEST_ACTIVITY_STATE, 0);
 	vmwrite(GUEST_SYSENTER_CS, vmreadz(HOST_IA32_SYSENTER_CS));
-	vmwrite(VMX_PREEMPTION_TIMER_VALUE, 0);
+	__vmwrite(VMX_PREEMPTION_TIMER_VALUE, 0);
 
 	vmwrite(GUEST_CR0, vmreadz(HOST_CR0));
 	vmwrite(GUEST_CR3, vmreadz(HOST_CR3));

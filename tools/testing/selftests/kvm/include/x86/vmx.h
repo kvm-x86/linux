@@ -414,7 +414,7 @@ static inline u64 vmreadz(u64 encoding)
 	return value;
 }
 
-static inline int vmwrite(u64 encoding, u64 value)
+static __always_inline int __vmwrite(u64 encoding, u64 value)
 {
 	u8 ret;
 
@@ -427,6 +427,11 @@ static inline int vmwrite(u64 encoding, u64 value)
 		: "cc", "memory");
 
 	return ret;
+}
+
+static inline int vmwrite(u64 encoding, u64 value)
+{
+	return __vmwrite(encoding, value);
 }
 
 static inline u32 vmcs_revision(void)
