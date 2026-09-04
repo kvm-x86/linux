@@ -313,56 +313,37 @@ struct vmx_msr_entry {
 	__GUEST_ASSERT(!__r, __stringify(insn) "[0x%lx] hit %s",	\
 		       __pa, __r < 0 ? "VM-Fail" : ex_str(__r))
 
-static inline void vmxon(u64 phys)
-{
-	u8 ret;
-
-	__asm__ __volatile__ ("vmxon %[pa]; setna %[ret]"
-		: [ret]"=rm"(ret)
-		: [pa]"m"(phys)
-		: "cc", "memory");
-
-	__GUEST_ASSERT(!ret, "vmxon [0x%lx] failed", phys);
+#define BUILD_VMCS_ASM_HELPERS(insn)					\
+static inline int __##insn(u64 vmcs_pa)					\
+{									\
+	u64 error_code;							\
+	u8 vector;							\
+	u8 failed;							\
+									\
+	asm volatile(KVM_ASM_SAFE(__stringify(insn) " %[pa]")		\
+		     "\n\tsetna %[failed]"				\
+		     : KVM_ASM_SAFE_OUTPUTS(vector, error_code),	\
+		       [failed]"=qm"(failed)				\
+		     : [pa]"m"(vmcs_pa)					\
+		     : "cc", "memory", KVM_ASM_SAFE_CLOBBERS);		\
+									\
+	return vector ? vector : failed ? -EINVAL : 0;			\
+}									\
+									\
+static inline void insn(u64 vmcs_pa)					\
+{									\
+	int ret = __##insn(vmcs_pa);					\
+									\
+	GUEST_ASSERT_VMX_INSN_SUCCEEDED(insn, ret, vmcs_pa);		\
 }
+
+BUILD_VMCS_ASM_HELPERS(vmxon)
+BUILD_VMCS_ASM_HELPERS(vmptrld)
+BUILD_VMCS_ASM_HELPERS(vmclear)
 
 static inline void vmxoff(void)
 {
 	__asm__ __volatile__("vmxoff");
-}
-
-static inline void vmclear(u64 vmcs_pa)
-{
-	u8 ret;
-
-	__asm__ __volatile__ ("vmclear %[pa]; setna %[ret]"
-		: [ret]"=rm"(ret)
-		: [pa]"m"(vmcs_pa)
-		: "cc", "memory");
-
-	__GUEST_ASSERT(!ret, "vmclear [0x%lx] failed\n", vmcs_pa);
-}
-
-static inline int __vmptrld(u64 vmcs_pa)
-{
-	u64 error_code;
-	u8 vector;
-	u8 failed;
-
-	asm volatile(KVM_ASM_SAFE("vmptrld %[pa]")
-		     "\n\tsetna %[failed]"
-		     : KVM_ASM_SAFE_OUTPUTS(vector, error_code),
-		       [failed]"=qm"(failed)
-		     : [pa]"m"(vmcs_pa)
-		     : "cc", "memory", KVM_ASM_SAFE_CLOBBERS);
-
-	return vector ? vector : failed ? -EINVAL : 0;
-}
-
-static inline void vmptrld(u64 vmcs_pa)
-{
-	int ret = __vmptrld(vmcs_pa);
-
-	GUEST_ASSERT_VMX_INSN_SUCCEEDED(vmptrld, ret, vmcs_pa);
 }
 
 static inline u64 vmptrst(void)
