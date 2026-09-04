@@ -359,54 +359,17 @@ static inline u64 vmptrst(void)
 	return value;
 }
 
+int __vmlaunch(void);
+int __vmresume(void);
+
 static inline int vmlaunch(void)
 {
-	int ret;
-
-	if (enable_evmcs)
-		return evmcs_vmlaunch();
-
-	__asm__ __volatile__("push $0;"
-			     "vmwrite %%rsp, %[host_rsp];"
-			     "lea 1f(%%rip), %%rax;"
-			     "vmwrite %%rax, %[host_rip];"
-			     VMX_SWITCH_GPRS_ASM
-			     "vmlaunch;"
-			     "incq (%%rsp);"
-			     "1: ;"
-			     VMX_SWITCH_GPRS_ASM
-			     "pop %%rax;"
-			     : [ret]"=&a"(ret)
-			     : [host_rsp]"r"((u64)HOST_RSP),
-			       [host_rip]"r"((u64)HOST_RIP),
-			       GUEST_REGS_OFFSETS
-			     : "memory", "cc");
-	return ret;
+	return __vmlaunch();
 }
 
 static inline int vmresume(void)
 {
-	int ret;
-
-	if (enable_evmcs)
-		return evmcs_vmresume();
-
-	__asm__ __volatile__("push $0;"
-			     "vmwrite %%rsp, %[host_rsp];"
-			     "lea 1f(%%rip), %%rax;"
-			     "vmwrite %%rax, %[host_rip];"
-			     VMX_SWITCH_GPRS_ASM
-			     "vmresume;"
-			     "incq (%%rsp);"
-			     "1: ;"
-			     VMX_SWITCH_GPRS_ASM
-			     "pop %%rax;"
-			     : [ret]"=&a"(ret)
-			     : [host_rsp]"r"((u64)HOST_RSP),
-			       [host_rip]"r"((u64)HOST_RIP),
-			       GUEST_REGS_OFFSETS
-			     : "memory", "cc");
-	return ret;
+	return __vmresume();
 }
 
 static inline void vmcall(void)

@@ -179,6 +179,61 @@ void load_vmcs(struct vmx_pages *vmx)
 	vmclear(vmx->shadow_vmcs_gpa);
 }
 
+#define __BUILD_VMX_VM_ENTRY_HELPER(insn, prefix, vmwrite_insn, vmwrite_operand,	\
+				    __host_rsp, __host_rip)				\
+static int __##prefix##_##insn(void)							\
+{											\
+	int ret;									\
+											\
+	__asm__ __volatile__("push $0;"							\
+			     __stringify(vmwrite_insn) " %%rsp, %[host_rsp];"		\
+			     "lea 1f(%%rip), %%rax;"					\
+			     __stringify(vmwrite_insn) " %%rax, %[host_rip];"		\
+			     VMX_SWITCH_GPRS_ASM					\
+			     __stringify(insn)";"					\
+			     "incq (%%rsp);"						\
+			     "1: ;"							\
+			     VMX_SWITCH_GPRS_ASM					\
+			     "pop %%rax;"						\
+			     : [ret]"=&a"(ret)						\
+			     : [host_rsp]__stringify(vmwrite_operand)(__host_rsp),	\
+			       [host_rip]__stringify(vmwrite_operand)(__host_rip),	\
+			       GUEST_REGS_OFFSETS					\
+			     : "memory", "cc");						\
+	return ret;									\
+}
+
+#define BUILD_VMX_VM_ENTRY_HELPER(insn) \
+	__BUILD_VMX_VM_ENTRY_HELPER(insn, _, vmwrite, r, (u64)HOST_RSP, (u64)HOST_RIP)	\
+	__BUILD_VMX_VM_ENTRY_HELPER(insn, __evmcs, mov, m,				\
+				    current_evmcs->host_rsp, current_evmcs->host_rip)
+
+BUILD_VMX_VM_ENTRY_HELPER(vmlaunch)
+BUILD_VMX_VM_ENTRY_HELPER(vmresume)
+
+int __vmlaunch(void)
+{
+	if (enable_evmcs) {
+		current_evmcs->hv_clean_fields = 0;
+		return ____evmcs_vmlaunch();
+	}
+
+	return ____vmlaunch();
+}
+
+int __vmresume(void)
+{
+	if (enable_evmcs) {
+		/* HOST_RIP */
+		current_evmcs->hv_clean_fields &= ~HV_VMX_ENLIGHTENED_CLEAN_FIELD_HOST_GRP1;
+		/* HOST_RSP */
+		current_evmcs->hv_clean_fields &= ~HV_VMX_ENLIGHTENED_CLEAN_FIELD_HOST_POINTER;
+		return ____evmcs_vmresume();
+	}
+
+	return ____vmresume();
+}
+
 static bool ept_vpid_cap_supported(u64 mask)
 {
 	return rdmsr(MSR_IA32_VMX_EPT_VPID_CAP) & mask;
