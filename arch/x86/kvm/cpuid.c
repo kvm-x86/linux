@@ -1081,7 +1081,7 @@ void kvm_initialize_cpu_caps(void)
 	);
 
 	kvm_cpu_cap_init(CPUID_24_1_ECX,
-		F(AVX10_VNNI_INT),
+		F(AVX10_V1_AUX),
 	);
 
 	kvm_cpu_cap_init(CPUID_8000_0001_ECX,
