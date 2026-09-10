@@ -1454,7 +1454,7 @@ static inline bool kvm_is_pmu_enabled(void)
 
 static inline bool kvm_is_mediated_pmu_enabled(void)
 {
-	if (host_cpu_is_intel)
+	if (host_cpu_is_intel_compatible)
 		return get_kvm_intel_param_bool("enable_mediated_pmu");
 
 	return get_kvm_amd_param_bool("enable_mediated_pmu");
