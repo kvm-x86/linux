@@ -422,19 +422,19 @@ void prepare_vmcs(struct vmx_pages *vmx, void *guest_rip)
 	init_vmcs_guest_state(guest_rip, vmx->stack);
 }
 
-bool kvm_cpu_has_ept(void)
+bool kvm_cpu_has_secondary_exec_control(u32 ctrl)
 {
-	u64 ctrl;
+	u64 ctrl_msr;
 
 	if (!kvm_cpu_has(X86_FEATURE_VMX))
 		return false;
 
-	ctrl = kvm_get_feature_msr(MSR_IA32_VMX_TRUE_PROCBASED_CTLS) >> 32;
-	if (!(ctrl & CPU_BASED_ACTIVATE_SECONDARY_CONTROLS))
+	ctrl_msr = kvm_get_feature_msr(MSR_IA32_VMX_TRUE_PROCBASED_CTLS) >> 32;
+	if (!(ctrl_msr & CPU_BASED_ACTIVATE_SECONDARY_CONTROLS))
 		return false;
 
-	ctrl = kvm_get_feature_msr(MSR_IA32_VMX_PROCBASED_CTLS2) >> 32;
-	return ctrl & SECONDARY_EXEC_ENABLE_EPT;
+	ctrl_msr = kvm_get_feature_msr(MSR_IA32_VMX_PROCBASED_CTLS2) >> 32;
+	return ctrl_msr & ctrl;
 }
 
 void prepare_virtualize_apic_accesses(struct vmx_pages *vmx, struct kvm_vm *vm)
