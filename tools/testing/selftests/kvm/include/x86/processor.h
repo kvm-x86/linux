@@ -23,6 +23,8 @@ extern bool host_cpu_is_intel;
 extern bool host_cpu_is_amd;
 extern bool host_cpu_is_hygon;
 extern bool host_cpu_is_amd_compatible;
+extern bool host_cpu_is_zhaoxin;
+extern bool host_cpu_is_intel_compatible;
 extern u64 guest_tsc_khz;
 extern struct kvm_mmu guest_mmu;
 
@@ -780,6 +782,12 @@ static inline bool this_cpu_is_amd(void)
 static inline bool this_cpu_is_hygon(void)
 {
 	return this_cpu_vendor_string_is("HygonGenuine");
+}
+
+static inline bool this_cpu_is_zhaoxin(void)
+{
+	return this_cpu_vendor_string_is("CentaurHauls") ||
+	       this_cpu_vendor_string_is("  Shanghai  ");
 }
 
 static inline u32 __this_cpu_has(u32 function, u32 index, u8 reg, u8 lo, u8 hi)
