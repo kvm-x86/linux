@@ -2132,7 +2132,9 @@ provided event instead of triggering an exit.
 	__u32 len;         /* 0, 1, 2, 4, or 8 bytes    */
 	__s32 fd;
 	__u32 flags;
-	__u8  pad[36];
+	__u32 pad0;
+	__u64 post_addr;   /* address to write to if POST_WRITE is set */
+	__u8  pad[24];
   };
 
 For the special case of virtio-ccw devices on s390, the ioevent is matched
@@ -2145,6 +2147,7 @@ The following flags are defined::
   #define KVM_IOEVENTFD_FLAG_DEASSIGN  (1 << kvm_ioeventfd_flag_nr_deassign)
   #define KVM_IOEVENTFD_FLAG_VIRTIO_CCW_NOTIFY \
 	(1 << kvm_ioeventfd_flag_nr_virtio_ccw_notify)
+  #define KVM_IOEVENTFD_FLAG_POST_WRITE (1 << kvm_ioeventfd_flag_nr_post_write)
 
 If datamatch flag is set, the event will be signaled only if the written value
 to the registered address is equal to datamatch in struct kvm_ioeventfd.
@@ -2156,6 +2159,15 @@ With KVM_CAP_IOEVENTFD_ANY_LENGTH, a zero length ioeventfd is allowed, and
 the kernel will ignore the length of guest write and may get a faster vmexit.
 The speedup may only apply to specific architectures, but the ioeventfd will
 work anyway.
+
+With KVM_IOEVENTFD_FLAG_POST_WRITE, the value being written is copied to the
+userspace address specified by post_addr, and the eventfd is signaled.  The
+copy is guaranteed to complete before the eventfd is signaled, so a userspace
+reader that wakes on the eventfd will observe the written value.  When multiple
+vCPUs write to the same ioeventfd concurrently, the value at post_addr reflects
+one of the writes. If the copy to post_addr fails (e.g. the memory has been
+unmapped), the eventfd is not signaled and the write is reported to userspace
+as a regular MMIO/PIO exit.
 
 4.60 KVM_DIRTY_TLB
 ------------------

@@ -743,6 +743,7 @@ struct _ioeventfd {
 	struct kvm_io_device dev;
 	u8                   bus_idx;
 	bool                 wildcard;
+	void         __user *post_addr;
 };
 
 static inline struct _ioeventfd *
@@ -818,8 +819,37 @@ ioeventfd_write(struct kvm_vcpu *vcpu, struct kvm_io_device *this, gpa_t addr,
 	if (!ioeventfd_in_range(p, addr, len, val))
 		return -EOPNOTSUPP;
 
+	if (p->post_addr) {
+		u64 _val = ioeventfd_get_val(val, len, unsupported_len);
+		int r;
+
+		switch (len) {
+		case 1:
+			r = put_user(_val, (u8 __user *)p->post_addr);
+			break;
+		case 2:
+			r = put_user(_val, (u16 __user *)p->post_addr);
+			break;
+		case 4:
+			r = put_user(_val, (u32 __user *)p->post_addr);
+			break;
+		case 8:
+			r = put_user(_val, (u64 __user *)p->post_addr);
+			break;
+		default:
+			WARN_ON_ONCE(1);
+			r = 0;
+			goto unsupported_len;
+		}
+		if (r)
+			return r;
+	}
+
 	eventfd_signal(p->eventfd);
 	return 0;
+
+unsupported_len:
+	return -EOPNOTSUPP;
 }
 
 /*
@@ -879,6 +909,19 @@ static int kvm_assign_ioeventfd_idx(struct kvm *kvm,
 	if (IS_ERR(eventfd))
 		return PTR_ERR(eventfd);
 
+	/*
+	 * Disallow posting to virtual address 0 so that KVM can treat
+	 * a NULL user pointer as "no posted write".
+	 */
+	if ((args->flags & KVM_IOEVENTFD_FLAG_POST_WRITE) &&
+	    (!args->len || !u64_to_user_ptr(args->post_addr) ||
+	     args->post_addr != untagged_addr(args->post_addr) ||
+	     !access_ok(u64_to_user_ptr(args->post_addr), args->len) ||
+	     !IS_ALIGNED(args->post_addr, args->len))) {
+		ret = -EINVAL;
+		goto fail;
+	}
+
 	p = kzalloc_obj(*p, GFP_KERNEL_ACCOUNT);
 	if (!p) {
 		ret = -ENOMEM;
@@ -896,6 +939,9 @@ static int kvm_assign_ioeventfd_idx(struct kvm *kvm,
 		p->datamatch = args->datamatch;
 	else
 		p->wildcard = true;
+
+	if (args->flags & KVM_IOEVENTFD_FLAG_POST_WRITE)
+		p->post_addr = u64_to_user_ptr(args->post_addr);
 
 	mutex_lock(&kvm->slots_lock);
 
@@ -948,6 +994,11 @@ kvm_deassign_ioeventfd_idx(struct kvm *kvm, enum kvm_bus bus_idx,
 	mutex_lock(&kvm->slots_lock);
 
 	list_for_each_entry(p, &kvm->ioeventfds, list) {
+		/*
+		 * No need to match post_addr, ioeventfd_check_collision
+		 * prevents duplicate registrations that only differ by
+		 * post_addr.
+		 */
 		if (p->bus_idx != bus_idx ||
 		    p->eventfd != eventfd  ||
 		    p->addr != args->addr  ||

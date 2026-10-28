@@ -644,6 +644,7 @@ enum {
 	kvm_ioeventfd_flag_nr_deassign,
 	kvm_ioeventfd_flag_nr_virtio_ccw_notify,
 	kvm_ioeventfd_flag_nr_fast_mmio,
+	kvm_ioeventfd_flag_nr_post_write,
 	kvm_ioeventfd_flag_nr_max,
 };
 
@@ -652,6 +653,7 @@ enum {
 #define KVM_IOEVENTFD_FLAG_DEASSIGN  (1 << kvm_ioeventfd_flag_nr_deassign)
 #define KVM_IOEVENTFD_FLAG_VIRTIO_CCW_NOTIFY \
 	(1 << kvm_ioeventfd_flag_nr_virtio_ccw_notify)
+#define KVM_IOEVENTFD_FLAG_POST_WRITE (1 << kvm_ioeventfd_flag_nr_post_write)
 
 #define KVM_IOEVENTFD_VALID_FLAG_MASK  ((1 << kvm_ioeventfd_flag_nr_max) - 1)
 
@@ -661,7 +663,9 @@ struct kvm_ioeventfd {
 	__u32 len;         /* 1, 2, 4, or 8 bytes; or 0 to ignore length */
 	__s32 fd;
 	__u32 flags;
-	__u8  pad[36];
+	__u32 pad0;
+	__u64 post_addr;   /* address to write to if POST_WRITE is set */
+	__u8  pad[24];
 };
 
 #define KVM_X86_DISABLE_EXITS_MWAIT          (1 << 0)
@@ -1000,6 +1004,7 @@ struct kvm_enable_cap {
 #define KVM_CAP_PPC_COMPAT_CAPS 250
 #define KVM_CAP_ARM_PMU_V3_STRICT 251
 #define KVM_CAP_GUEST_MEMFD_MEMORY_ATTRIBUTES 252
+#define KVM_CAP_IOEVENTFD_POST_WRITE 253
 
 struct kvm_irq_routing_irqchip {
 	__u32 irqchip;

@@ -5005,6 +5005,7 @@ static int kvm_vm_ioctl_check_extension_generic(struct kvm *kvm, long arg)
 	case KVM_CAP_IRQFD:
 #endif
 	case KVM_CAP_IOEVENTFD_ANY_LENGTH:
+	case KVM_CAP_IOEVENTFD_POST_WRITE:
 	case KVM_CAP_CHECK_EXTENSION_VM:
 	case KVM_CAP_ENABLE_CAP_VM:
 	case KVM_CAP_HALT_POLL:
