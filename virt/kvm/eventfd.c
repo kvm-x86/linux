@@ -759,11 +759,32 @@ ioeventfd_release(struct _ioeventfd *p)
 	kfree(p);
 }
 
+#define ioeventfd_get_val(__ptr, __len, __unsupported_len)	\
+({								\
+	u64 __val;						\
+								\
+	switch (__len) {						\
+	case 1:							\
+		__val = get_unaligned((u8 *)__ptr);		\
+		break;						\
+	case 2:							\
+		__val = get_unaligned((u16 *)__ptr);		\
+		break;						\
+	case 4:							\
+		__val = get_unaligned((u32 *)__ptr);		\
+		break;						\
+	case 8:							\
+		__val = get_unaligned((u64 *)__ptr);		\
+		break;						\
+	default:						\
+		goto __unsupported_len;				\
+	}							\
+	__val;							\
+})
+
 static bool
 ioeventfd_in_range(struct _ioeventfd *p, gpa_t addr, int len, const void *val)
 {
-	u64 _val;
-
 	if (addr != p->addr)
 		/* address must be precise for a hit */
 		return false;
@@ -781,24 +802,10 @@ ioeventfd_in_range(struct _ioeventfd *p, gpa_t addr, int len, const void *val)
 		return true;
 
 	/* otherwise, we have to actually compare the data */
-	switch (len) {
-	case 1:
-		_val = get_unaligned((u8 *)val);
-		break;
-	case 2:
-		_val = get_unaligned((u16 *)val);
-		break;
-	case 4:
-		_val = get_unaligned((u32 *)val);
-		break;
-	case 8:
-		_val = get_unaligned((u64 *)val);
-		break;
-	default:
-		return false;
-	}
+	return ioeventfd_get_val(val, len, unsupported_len) == p->datamatch;
 
-	return _val == p->datamatch;
+unsupported_len:
+	return false;
 }
 
 /* MMIO/PIO writes trigger an event if the addr/val match */
