@@ -410,7 +410,7 @@ static void *juggle_shinfo_state(void *arg)
 	};
 
 	struct kvm_xen_hvm_attr cache_deactivate_hva = {
-		.type = KVM_XEN_ATTR_TYPE_SHARED_INFO,
+		.type = KVM_XEN_ATTR_TYPE_SHARED_INFO_HVA,
 		.u.shared_info.hva = 0
 	};
 
