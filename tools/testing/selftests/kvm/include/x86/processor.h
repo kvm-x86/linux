@@ -883,28 +883,28 @@ static inline void read_sse_reg(int reg, sse128_t *data)
 {
 	switch (reg) {
 	case 0:
-		asm("movdqa %%xmm0, %0" : "=m"(*data));
+		asm volatile("movdqa %%xmm0, %0" : "=m"(*data));
 		break;
 	case 1:
-		asm("movdqa %%xmm1, %0" : "=m"(*data));
+		asm volatile("movdqa %%xmm1, %0" : "=m"(*data));
 		break;
 	case 2:
-		asm("movdqa %%xmm2, %0" : "=m"(*data));
+		asm volatile("movdqa %%xmm2, %0" : "=m"(*data));
 		break;
 	case 3:
-		asm("movdqa %%xmm3, %0" : "=m"(*data));
+		asm volatile("movdqa %%xmm3, %0" : "=m"(*data));
 		break;
 	case 4:
-		asm("movdqa %%xmm4, %0" : "=m"(*data));
+		asm volatile("movdqa %%xmm4, %0" : "=m"(*data));
 		break;
 	case 5:
-		asm("movdqa %%xmm5, %0" : "=m"(*data));
+		asm volatile("movdqa %%xmm5, %0" : "=m"(*data));
 		break;
 	case 6:
-		asm("movdqa %%xmm6, %0" : "=m"(*data));
+		asm volatile("movdqa %%xmm6, %0" : "=m"(*data));
 		break;
 	case 7:
-		asm("movdqa %%xmm7, %0" : "=m"(*data));
+		asm volatile("movdqa %%xmm7, %0" : "=m"(*data));
 		break;
 	default:
 		BUG();
@@ -915,28 +915,28 @@ static inline void write_sse_reg(int reg, const sse128_t *data)
 {
 	switch (reg) {
 	case 0:
-		asm("movdqa %0, %%xmm0" : : "m"(*data));
+		asm volatile("movdqa %0, %%xmm0" : : "m"(*data) : "xmm0");
 		break;
 	case 1:
-		asm("movdqa %0, %%xmm1" : : "m"(*data));
+		asm volatile("movdqa %0, %%xmm1" : : "m"(*data) : "xmm1");
 		break;
 	case 2:
-		asm("movdqa %0, %%xmm2" : : "m"(*data));
+		asm volatile("movdqa %0, %%xmm2" : : "m"(*data) : "xmm2");
 		break;
 	case 3:
-		asm("movdqa %0, %%xmm3" : : "m"(*data));
+		asm volatile("movdqa %0, %%xmm3" : : "m"(*data) : "xmm3");
 		break;
 	case 4:
-		asm("movdqa %0, %%xmm4" : : "m"(*data));
+		asm volatile("movdqa %0, %%xmm4" : : "m"(*data) : "xmm4");
 		break;
 	case 5:
-		asm("movdqa %0, %%xmm5" : : "m"(*data));
+		asm volatile("movdqa %0, %%xmm5" : : "m"(*data) : "xmm5");
 		break;
 	case 6:
-		asm("movdqa %0, %%xmm6" : : "m"(*data));
+		asm volatile("movdqa %0, %%xmm6" : : "m"(*data) : "xmm6");
 		break;
 	case 7:
-		asm("movdqa %0, %%xmm7" : : "m"(*data));
+		asm volatile("movdqa %0, %%xmm7" : : "m"(*data) : "xmm7");
 		break;
 	default:
 		BUG();
