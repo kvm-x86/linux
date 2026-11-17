@@ -3191,6 +3191,9 @@ int kvm_prefetch_pages(struct kvm_memory_slot *slot, gfn_t gfn,
 	unsigned long addr;
 	gfn_t entry = 0;
 
+	if (kvm_memslot_is_gmem_only(slot))
+		return -EINVAL;
+
 	addr = gfn_to_hva_many(slot, gfn, &entry);
 	if (kvm_is_error_hva(addr))
 		return -1;
