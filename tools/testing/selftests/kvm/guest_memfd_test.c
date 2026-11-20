@@ -81,15 +81,16 @@ static void test_mbind(int fd, size_t total_size)
 	unsigned long nodemask = 0;
 	unsigned long maxnode = MAXNODE_FOR_MASK(nodemask);
 	unsigned long bind_nodemask;
+	unsigned long mems_allowed;
 	int policy;
 	char *mem;
 	int nid;
 	int ret;
 
-	if (!is_multi_numa_node_system())
+	if (!kvm_get_numa_memory_nodes(&mems_allowed))
 		return;
 
-	nid = 0;
+	nid = kvm_get_next_numa_node(mems_allowed, -1);
 	bind_nodemask = BIT(nid);
 
 	mem = kvm_mmap(total_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd);
