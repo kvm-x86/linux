@@ -127,18 +127,19 @@ static void test_mbind(int fd, size_t total_size)
 static void test_numa_allocation(int fd, size_t total_size)
 {
 	unsigned long node0_mask, node1_mask;
-	unsigned long maxnode = 8;
+	unsigned long maxnode = MAXNODE_FOR_MASK(node0_mask);
+	unsigned long mems_allowed;
 	int nid0, nid1;
 	void *pages[4];
 	int status[4];
 	char *mem;
 	int i;
 
-	if (!is_multi_numa_node_system())
+	if (kvm_get_numa_memory_nodes(&mems_allowed) < 2)
 		return;
 
-	nid0 = 0;
-	nid1 = 1;
+	nid0 = kvm_get_next_numa_node(mems_allowed, -1);
+	nid1 = kvm_get_next_numa_node(mems_allowed, nid0);
 	node0_mask = BIT(nid0);
 	node1_mask = BIT(nid1);
 
